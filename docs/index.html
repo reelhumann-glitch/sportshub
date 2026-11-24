@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Set up SportsHub with your own sports addons and Cloudflare account.">
+  <title>SportsHub Setup</title>
+  <link rel="stylesheet" href="wizard.css">
+  <script type="module" src="wizard.js"></script>
+</head>
+<body>
+  <main>
+    <header class="masthead">
+      <a class="brand" href="./">Sports<span>Hub</span></a>
+      <a href="https://github.com/reelhumann-glitch/sportshub">GitHub ↗</a>
+    </header>
+    <h1>Set up SportsHub</h1>
+    <nav aria-label="Setup progress">
+      <ol id="progress">
+        <li aria-current="step">Sources</li><li>Catalogs</li><li>Deploy</li><li>Install</li>
+      </ol>
+    </nav>
+    <div class="panel">
+      <section data-step="0" aria-labelledby="sources-title">
+        <h2 id="sources-title" tabindex="-1">Choose your sources</h2>
+        <fieldset class="choices">
+          <legend>Do you already have AIOStreams set up for sports?</legend>
+          <label><input type="radio" name="source" value="existing" checked> Yes, I have my AIOStreams manifest</label>
+          <label><input type="radio" name="source" value="setup"> No, help me set up my sports addons</label>
+        </fieldset>
+        <div id="source-setup" hidden>
+          <p>Configure each addon first. Save its settings and copy the manifest URL it gives you.</p>
+          <ul class="sources">
+            <li><a href="https://nuviosports.xyz/configure" target="_blank" rel="noopener noreferrer">NuvioLiveSports ↗</a></li>
+            <li><a href="https://sports.highfly.to/configure" target="_blank" rel="noopener noreferrer">HighFly Sports ↗</a></li>
+            <li><a href="https://cncverse.dpdns.org/" target="_blank" rel="noopener noreferrer">CNCVerse ↗</a></li>
+            <li><a href="https://pengu.uk/" target="_blank" rel="noopener noreferrer">PenguPlay ↗</a></li>
+          </ul>
+          <p>Enable live sports in PenguPlay or live event catalogs in CNCVerse if you use those addons.</p>
+          <p>Open the template picker on your AIOStreams instance, import the template by URL, then paste the configured manifests for the addons you want. Save the configuration and copy its AIOStreams manifest URL.</p>
+          <div class="actions">
+            <a href="https://aiostreams.elfhosted.com/stremio/configure?template=https%3A%2F%2Fraw.githubusercontent.com%2Freelhumann-glitch%2Fsportshub%2Fmain%2Faiostreams-template.json" target="_blank" rel="noopener noreferrer">Open template in public AIOStreams ↗</a>
+            <a href="https://raw.githubusercontent.com/reelhumann-glitch/sportshub/main/aiostreams-template.json" target="_blank" rel="noopener noreferrer">Open template ↗</a>
+            <button type="button" class="secondary" data-copy="template">Copy template URL</button>
+          </div>
+        </div>
+        <details>
+          <summary>Using direct addon manifests instead?</summary>
+          <p>SportsHub can use NuvioLiveSports, HighFly Sports, and CNCVerse directly. Configure them first, then enter their manifest URLs in the matching Cloudflare fields during deployment. PenguPlay uses the AIOStreams path.</p>
+        </details>
+      </section>
+      <section data-step="1" aria-labelledby="catalogs-title" hidden>
+        <h2 id="catalogs-title" tabindex="-1">Choose your catalogs</h2>
+        <fieldset class="choices">
+          <legend>Do you want to use the standard catalogs?</legend>
+          <label><input type="radio" name="catalog-mode" value="standard" checked> Yes, use the standard catalogs</label>
+          <label><input type="radio" name="catalog-mode" value="custom"> No, let me choose</label>
+        </fieldset>
+        <fieldset id="catalog-options" hidden>
+          <legend>Keep the rows you want to see in Nuvio</legend>
+          <div id="catalog-list" class="catalog-list"></div>
+        </fieldset>
+      </section>
+      <section data-step="2" aria-labelledby="deploy-title" hidden>
+        <h2 id="deploy-title" tabindex="-1">Deploy to Cloudflare</h2>
+        <ol class="steps">
+          <li>Open the deploy page and sign in to Cloudflare. Connect GitHub when prompted.</li>
+          <li>In the secret fields, paste your configured AIOStreams manifest under <code>AIOSTREAMS_MANIFEST_URL</code>. For direct addons, use the matching source fields.</li>
+          <li id="custom-deploy" hidden>Paste the value below into <code>SPORTHUB_CATALOGS</code>. If the field is missing, add it in your Worker's <strong>Settings → Variables and Secrets</strong>.</li>
+          <li>Deploy, then copy the HTTPS address of your new Worker.</li>
+        </ol>
+        <div id="catalog-value-wrap" class="copy-box" hidden>
+          <label for="catalog-value">SPORTHUB_CATALOGS</label>
+          <input id="catalog-value" readonly>
+          <button class="secondary" type="button" data-copy="catalogs">Copy catalog value</button>
+        </div>
+        <a class="primary cta" href="https://deploy.workers.cloudflare.com/?url=https%3A%2F%2Fgithub.com%2Freelhumann-glitch%2Fsportshub" target="_blank" rel="noopener noreferrer">Deploy to Cloudflare ↗</a>
+      </section>
+      <section data-step="3" aria-labelledby="install-title" hidden>
+        <h2 id="install-title" tabindex="-1">Install in Nuvio</h2>
+        <p>Add <code>/manifest.json</code> to the end of your Worker's HTTPS address.</p>
+        <div class="copy-box">
+          <label for="worker-url">Your Worker address</label>
+          <input id="worker-url" type="url" placeholder="https://sportshub-addon.example.workers.dev" autocomplete="off">
+          <button class="secondary" type="button" data-copy="manifest">Copy install link</button>
+          <output id="manifest-preview" for="worker-url"></output>
+        </div>
+        <p>In Nuvio, open <strong>Settings → Addons → Add Addon</strong> and paste the install link.</p>
+      </section>
+      <noscript><a href="https://github.com/reelhumann-glitch/sportshub#deploy-in-your-browser">Read the setup instructions on GitHub.</a></noscript>
+      <p id="notice" role="status"></p>
+      <div class="wizard-nav">
+        <button type="button" id="back" class="secondary" hidden>Back</button>
+        <button type="button" id="next" class="primary">Continue</button>
+      </div>
+    </div>
+    <footer>Enter private source URLs directly in AIOStreams or Cloudflare.</footer>
+  </main>
+</body>
+</html>

@@ -19,6 +19,9 @@
       },
       "THESPORTSDB_API_KEY": {
         "description": "Optional TheSportsDB key for fixture metadata."
+      },
+      "SPORTHUB_CATALOGS": {
+        "description": "Optional. Leave blank for standard catalogs, or paste the catalog list from the SportsHub setup wizard."
       }
     }
   },

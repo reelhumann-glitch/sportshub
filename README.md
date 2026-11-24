@@ -1,6 +1,13 @@
 # SportsHub 0.2.9
 
-SportsHub is a self-hosted sports addon for Nuvio and other Stremio-compatible clients. It combines live feeds from supported addons with sports fixtures, upcoming games, and matchup artwork. Each installation runs in the installer's Cloudflare account and uses their own sources.
+SportsHub is a self-hosted sports addon for Nuvio. It combines your sports sources with live games, upcoming fixtures, and matchup artwork.
+
+**[Start Setup →](https://reelhumann-glitch.github.io/sportshub/)**
+
+The wizard guides you through sources, optional catalog selection, Cloudflare deployment, and installation in Nuvio.
+
+<details>
+<summary>Manual browser setup and troubleshooting</summary>
 
 ## Deploy in your browser
 
@@ -14,7 +21,7 @@ If you need to add or update a source after deployment, open your Worker in **Wo
 2. Choose a Worker name and fill in `AIOSTREAMS_MANIFEST_URL` or the matching direct source secret fields. Leave unused fields blank. You can also add secrets in the Worker settings after deploying.
 3. Deploy. Copy the Worker’s HTTPS address, append `/manifest.json`, and open it in your browser to check that it returns the SportsHub manifest.
 4. In Nuvio, open **Settings → Addons → Add Addon**, paste the SportsHub manifest URL, and install it. Open **Live Now** or **Upcoming Today** to check the setup.
-5. If your Nuvio version supports catalog visibility settings, you can hide any sport rows you don’t want on Home.
+5. Optionally set `SPORTHUB_CATALOGS` in Cloudflare to the comma-separated list from the wizard. Leave it blank for all standard catalogs.
 
 ### Optional AIOStreams template
 
@@ -28,6 +35,11 @@ SportsHub handles its own sport and league filters, highlights exclusion, langua
 If you see `JSON.parse: unexpected character at line 1 column 1`, check that your file opens as JSON beginning with `{`. GitHub's regular file preview is an HTML page. Use the raw link above to get the JSON.
 
 The template was built from scratch with blank inputs. It contains no existing manifest URLs, configuration identifiers or account credentials.
+
+</details>
+
+<details>
+<summary>Terminal setup and technical details</summary>
 
 ## Terminal setup
 
@@ -64,3 +76,5 @@ Install dependencies with `npm ci`, sign into your own account with `npx wrangle
 - `npm test` runs the local tests.
 
 For local development, copy `.dev.vars.example` to `.dev.vars`, add your own source URLs, and run `npm run dev`. The included Atkinson Hyperlegible Next font license is in `assets/OFL.txt`.
+
+</details>

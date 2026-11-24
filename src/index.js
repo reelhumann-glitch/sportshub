@@ -1,12 +1,9 @@
 import { loadFixtures, matchupPoster } from './fixtures.js';
 import { rankStreams } from './stream-quality.js';
+import { enabledCatalogs, sports } from '../docs/catalogs.js';
 
-const SPORTS = [
-  ['soccer','Soccer'], ['football','American Football'], ['basketball','Basketball'],
-  ['hockey','Hockey'], ['baseball','Baseball'], ['mma','Combat Sports'],
-  ['tennis','Tennis'], ['motorsport','Motorsport'], ['rugby','Rugby'], ['other','Other Sports']
-];
-const SPORT_ICONS = {soccer:'⚽',football:'🏈',basketball:'🏀',hockey:'🏒',baseball:'⚾',mma:'🥊',tennis:'🎾',motorsport:'🏎️',rugby:'🏉',other:'🏅'};
+const SPORTS = sports.map(([id, name]) => [id, name]);
+const SPORT_ICONS = Object.fromEntries(sports.map(([id, , icon]) => [id, icon]));
 const PROVIDER_LABELS = { NUVIO: 'Nuvio', HIGHFLY: 'HighFly', CNC: 'CNCVerse', PP: 'PenguPlay' };
 const PROVIDERS = [
   { key: 'NUVIO', env: 'NUVIO_MANIFEST_URL', catalog: 'nuvio_sports_live', type: 'tv' },
@@ -382,16 +379,12 @@ async function fetchStreams(sourceIds, env) {
   const candidates = settled.flatMap(r => r.status === 'fulfilled' ? r.value : []);
   return rankStreams(candidates);
 }
-function manifest() {
+function manifest(env = {}) {
   return {
     id: 'community.sportshub.live', version: '0.2.9', name: 'SportsHub',
     description: 'Live sports and today’s upcoming games, with English feeds prioritized.',
     resources: ['catalog', 'meta', 'stream'], types: ['tv'], idPrefixes: ['sh_'],
-    catalogs: [
-      { type: 'tv', id: 'live_now', name: '🔴 Live Now', extra: [{ name: 'genre', isRequired: false }] },
-      { type: 'tv', id: 'upcoming_today', name: 'Upcoming Today', extra: [] },
-      ...SPORTS.map(([id, name]) => ({ type: 'tv', id: `sport_${id}`, name: `${SPORT_ICONS[id] || '🏅'} ${name}`, extra: [] }))
-    ],
+    catalogs: enabledCatalogs(env.SPORTHUB_CATALOGS).map(catalog => ({ type: 'tv', ...catalog })),
     behaviorHints: { configurable: false, configurationRequired: false }
   };
 }
@@ -400,7 +393,7 @@ export default {
     const url = new URL(request.url);
     if (request.method === 'OPTIONS') return new Response(null, { headers: JSON_HEADERS });
     if (request.method !== 'GET') return json({ error: 'Method not allowed' }, 405);
-    if (url.pathname === '/manifest.json') return json(manifest(), 200, { 'cache-control': 'public, max-age=300' });
+    if (url.pathname === '/manifest.json') return json(manifest(env), 200, { 'cache-control': 'public, max-age=300' });
     if (url.pathname === '/diagnostics/providers.json') {
       if (url.searchParams.has('fixtures')) {
         const data = await loadFixtures(env, fetchJson, true);
@@ -424,7 +417,7 @@ export default {
       const catalogId = decodeURIComponent(catalogMatch[1]);
       const sport = catalogId.startsWith('sport_') ? catalogId.slice(6) : null;
       const upcoming = catalogId === 'upcoming_today';
-      if (!upcoming && catalogId !== 'live_now' && !SPORTS.some(([id]) => id === sport)) {
+      if (!enabledCatalogs(env.SPORTHUB_CATALOGS).some(catalog => catalog.id === catalogId)) {
         return json({ error: 'Catalog not found' }, 404);
       }
       const checkLive = catalogId === 'live_now' || sport === 'other';

@@ -3,6 +3,14 @@ import assert from 'node:assert/strict';
 import worker,{eventFrom,manifest,makeId,parseId,isUsableStream,appendPath} from '../src/index.js';
 import { rankStreams } from '../src/stream-quality.js';
 
+test('catalog preferences expose only the selected rows and keep standard defaults', async () => {
+  const env = { SPORTHUB_CATALOGS: ' sport_rugby,upcoming_today,unknown,sport_rugby ' };
+  const response = await worker.fetch(new Request('https://x/manifest.json'), env);
+  assert.deepEqual((await response.json()).catalogs.map(catalog => catalog.id), ['upcoming_today', 'sport_rugby']);
+  assert.equal((await worker.fetch(new Request('https://x/catalog/tv/live_now.json'), env)).status, 404);
+  assert.deepEqual(manifest({ SPORTHUB_CATALOGS: ' ' }).catalogs, manifest().catalogs);
+});
+
 test('Rugby has its own row and Other Sports only lists live events with eligible streams', async t => {
   t.mock.method(globalThis, 'fetch', async input => {
     const url = new URL(input);
