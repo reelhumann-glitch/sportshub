@@ -1,0 +1,36 @@
+{
+  "name": "sportshub-addon",
+  "version": "0.2.9",
+  "private": true,
+  "type": "module",
+  "cloudflare": {
+    "bindings": {
+      "AIOSTREAMS_MANIFEST_URL": {
+        "description": "Paste your own configured AIOStreams manifest URL, or configure one or more direct sources below."
+      },
+      "NUVIO_MANIFEST_URL": {
+        "description": "Optional direct NuvioLiveSports manifest URL."
+      },
+      "HIGHFLY_MANIFEST_URL": {
+        "description": "Optional direct HighFly Sports manifest URL."
+      },
+      "CNC_MANIFEST_URL": {
+        "description": "Optional direct CNCVerse manifest URL."
+      },
+      "THESPORTSDB_API_KEY": {
+        "description": "Optional TheSportsDB key for fixture metadata."
+      }
+    }
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  },
+  "dependencies": {
+    "@resvg/resvg-wasm": "2.6.2"
+  }
+}
