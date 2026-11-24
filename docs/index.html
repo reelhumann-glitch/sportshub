@@ -108,7 +108,9 @@
         </div>
         <details>
           <summary>Optional sports metadata API keys</summary>
-          <p>SportsHub works with these fields blank. To add more schedule and team-logo coverage, <a href="https://dashboard.api-football.com/" target="_blank" rel="noopener noreferrer">create a free API-Sports account ↗</a> and copy your API key from its dashboard. You can also use a <a href="https://www.thesportsdb.com/API.php" target="_blank" rel="noopener noreferrer">TheSportsDB v1 key ↗</a> if you have one.</p>
+          <p>Both keys are optional. The official PWHL schedule is available with either field blank.</p>
+          <p><strong>API-Sports</strong> adds another source for schedules and team logos in supported soccer, basketball, hockey, and rugby leagues. Coverage depends on your plan. <a href="https://dashboard.api-football.com/" target="_blank" rel="noopener noreferrer">Create a free API-Sports account ↗</a> and copy your key from the dashboard.</p>
+          <p><strong>TheSportsDB</strong> uses the same fixture lookup with either key. Leave the field blank to use the shared public key. If you already have a <a href="https://www.thesportsdb.com/API.php" target="_blank" rel="noopener noreferrer">personal TheSportsDB v1 key ↗</a>, you can use it for higher limits and potentially more results.</p>
           <p>Paste keys here to copy them into the matching Cloudflare secret fields. If a field is missing, add it as a Secret under your Worker’s <strong>Settings → Variables and Secrets</strong>. Keys entered here stay in this tab.</p>
           <div class="copy-box">
             <label for="api-sports-key">API_SPORTS_KEY</label>
