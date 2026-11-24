@@ -105,4 +105,27 @@ $('[data-copy=template]').addEventListener('click', () => copy(templateUrl, 'Tem
 $('[data-copy=catalogs]').addEventListener('click', () => copy($('#catalog-value').value, 'Catalog value copied.'));
 $('[data-copy=language]').addEventListener('click', () => copy($('#language-value').value, 'Language setting copied.'));
 $('[data-copy=manifest]').addEventListener('click', () => copy(manifestLink(), 'Install link copied.'));
+for (const button of document.querySelectorAll('[data-secret]')) {
+  button.addEventListener('click', async () => {
+    const input = document.getElementById(button.dataset.secret);
+    const key = input.value.trim();
+    if (!key) {
+      notice.textContent = 'Paste your metadata key first.';
+      input.focus();
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(key);
+      notice.textContent = 'Key copied. Paste it into the matching Cloudflare secret.';
+    } catch {
+      input.select();
+      notice.textContent = 'Use your keyboard to copy the selected key.';
+    }
+  });
+}
+window.addEventListener('pagehide', () => {
+  for (const button of document.querySelectorAll('[data-secret]')) {
+    document.getElementById(button.dataset.secret).value = '';
+  }
+});
 refresh();

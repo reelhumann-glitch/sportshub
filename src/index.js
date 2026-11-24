@@ -1,4 +1,4 @@
-import { loadFixtures, matchupPoster } from './fixtures.js';
+import { loadFixtures, matchupPoster, publicBadge } from './fixtures.js';
 import { rankStreams } from './stream-quality.js';
 import { classifyLanguage, streamLanguageAllowed } from './stream-language.js';
 import { catalogs, enabledCatalogs, sports } from '../docs/catalogs.js';
@@ -108,7 +108,7 @@ function eventFrom(item, provider, filter = true) {
   if (!live || channel) return null;
   const title = cleanName(item.name || item.title || cnc?.title || cnc?.eventInfo?.eventName);
   const info = cnc?.eventInfo || {};
-  const poster = provider === 'CNC' ? query(item.poster) : null;
+  const poster = provider === 'CNC' ? query(item.poster || cnc?.poster) : null;
   const teams = provider === 'CNC' ? [info.teamA || poster.get('teamA'), info.teamB || poster.get('teamB')] : arr(item.cast).filter(Boolean).slice(0, 2);
   const parsed = title.split(/\s+(?:vs\.?|v\.?|@)\s+/i).map(x => x.trim());
   const teamA = teams[0] || item.team1?.name || parsed[0] || '';
@@ -123,6 +123,8 @@ function eventFrom(item, provider, filter = true) {
     poster: item.poster || item.background, background: item.background || item.poster,
     description: cleanEventDescription(sport, competition, teamA, teamB),
     competition, releaseInfo: 'LIVE', sport, teamA, teamB, eventKey,
+    badgeA: publicBadge(poster?.get('teamAImg') || item.team1?.logo),
+    badgeB: publicBadge(poster?.get('teamBImg') || item.team2?.logo),
     sourceIds: [{ provider, id }], raw: item
   };
 }
@@ -140,6 +142,17 @@ function sameFixture(a, b) {
   const reverse = similarity(a.teamA, b.teamB) + similarity(a.teamB, b.teamA);
   return Math.max(direct, reverse) >= 1.7;
 }
+function mergeBadges(event, source) {
+  const direct = similarity(event.teamA, source.teamA) + similarity(event.teamB, source.teamB);
+  const reverse = similarity(event.teamA, source.teamB) + similarity(event.teamB, source.teamA);
+  const from = direct >= reverse ? ['A', 'B'] : ['B', 'A'];
+  for (const [index, side] of ['A', 'B'].entries()) {
+    const primary = `badge${side}`;
+    const fallback = `fallbackBadge${side}`;
+    const candidates = [event[primary], event[fallback], source[`badge${from[index]}`], source[`fallbackBadge${from[index]}`]];
+    [event[primary], event[fallback]] = [...new Set(candidates.map(publicBadge).filter(Boolean))];
+  }
+}
 function mergeEvents(events) {
   const out = [];
   for (const e of events) {
@@ -149,6 +162,7 @@ function mergeEvents(events) {
       for (const src of e.sourceIds) if (!match.sourceIds.some(x => x.provider === src.provider && x.id === src.id)) match.sourceIds.push(src);
       if (!match.poster && e.poster) match.poster = e.poster;
       if (!match.background && e.background) match.background = e.background;
+      mergeBadges(match, e);
       if (!match.competition && e.competition) match.competition = e.competition;
       if (e.description && e.description.length > match.description.length) match.description = e.description;
     }
@@ -158,7 +172,7 @@ function mergeEvents(events) {
 }
 function b64url(text) { return btoa(unescape(encodeURIComponent(text))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, ''); }
 function unb64url(text) { const s = text.replace(/-/g, '+').replace(/_/g, '/'); return decodeURIComponent(escape(atob(s + '='.repeat((4 - s.length % 4) % 4)))); }
-function makeId(event) { return `sh_${b64url(JSON.stringify({ v: 1, sources: event.sourceIds, name: event.name, poster: event.poster, background: event.background, description: event.description, competition: event.competition, sport: event.sport, teamA: event.teamA, teamB: event.teamB, badgeA: event.badgeA, badgeB: event.badgeB, start: event.start, timeLabel: event.timeLabel, upcoming: event.upcoming }))}`; }
+function makeId(event) { return `sh_${b64url(JSON.stringify({ v: 1, sources: event.sourceIds, name: event.name, poster: event.poster, background: event.background, description: event.description, competition: event.competition, sport: event.sport, teamA: event.teamA, teamB: event.teamB, badgeA: event.badgeA, badgeB: event.badgeB, fallbackBadgeA: event.fallbackBadgeA, fallbackBadgeB: event.fallbackBadgeB, start: event.start, timeLabel: event.timeLabel, upcoming: event.upcoming }))}`; }
 function emptySport(sport) {
   const name = SPORTS.find(([id]) => id === sport)?.[1] || catalogs.find(catalog => catalog.id === sport)?.league;
   return name ? {
@@ -266,11 +280,17 @@ function matchesCatalog(event, catalog) {
   return aliases[catalog.league].includes(league);
 }
 function upcomingEvents({ fixtures, isUpcoming }, catalog) {
-  return fixtures.filter(isUpcoming).reverse().map(fixtureEvent)
+  const priority = ['pwhl', 'espn', 'sportsdb', 'apisports'];
+  const candidates = fixtures.filter(isUpcoming).map(fixtureEvent)
     .filter(event => matchesCatalog(event, catalog) && eligibleEvent(event.sport, event, null, event.competition))
-    .filter((event, index, events) => !events.slice(0, index).some(previous =>
-      Math.abs(previous.start - event.start) < 20 * 60000 && sameFixture(previous, event)))
-    .sort((a, b) => a.start - b.start)
+    .sort((a, b) => priority.indexOf(a.provider) - priority.indexOf(b.provider));
+  const events = [];
+  for (const event of candidates) {
+    const match = events.find(previous => Math.abs(previous.start - event.start) < 20 * 60000 && sameFixture(previous, event));
+    if (match) mergeBadges(match, event);
+    else events.push(event);
+  }
+  return events.sort((a, b) => a.start - b.start)
     .map(event => ({
       ...event, upcoming: true, sourceIds: [],
       description: [`Starts: ${event.timeLabel}`, event.competition, event.name].filter(Boolean).join('\n')
@@ -282,7 +302,9 @@ function findFixture(event, fixtures) {
     fixture
   ));
   if (matches.length === 1) return matches[0];
-  const scoreboard = matches.find(fixture => String(fixture.id).startsWith('espn:'));
+  const scoreboard = matches.find(fixture => fixture.provider === 'pwhl')
+    || matches.find(fixture => fixture.provider === 'espn')
+    || matches.find(fixture => fixture.provider === 'apisports');
   if (scoreboard && matches.every(fixture => Math.abs(fixture.start - scoreboard.start) < 20 * 60000
       && sameFixture(fixture, scoreboard))) return scoreboard;
   if (!event.competition) return undefined;
@@ -301,6 +323,7 @@ async function allEvents(env, fixtureData = []) {
     const fixture = findFixture(event, fixtures);
     if (!fixture && event.provider === 'CNC' && event.sport === 'other' && !decodeCnc(event.id)) return [];
     const updated = fixture ? { ...event, ...fixture } : event;
+    if (fixture) mergeBadges(updated, event);
     const classification = fixture ? { category: fixture.category, competition: fixture.competition } : event.raw;
     const cnc = !fixture && event.provider === 'CNC' ? decodeCnc(event.id) : null;
     return eligibleEvent(updated.sport, classification, cnc, updated.competition) ? [updated] : [];
@@ -375,15 +398,18 @@ function manifest(env = {}) {
   };
 }
 export default {
-  async fetch(request, env, { artworkExtension } = {}) {
+  async fetch(request, env, { artworkExtension, metadataCache, waitUntil } = {}) {
     const url = new URL(request.url);
+    const cacheOptions = { cache: metadataCache, origin: url.origin, waitUntil };
     if (request.method === 'OPTIONS') return new Response(null, { headers: JSON_HEADERS });
     if (request.method !== 'GET') return json({ error: 'Method not allowed' }, 405);
     if (url.pathname === '/manifest.json') return json(manifest(env), 200, { 'cache-control': 'public, max-age=300' });
     if (url.pathname === '/diagnostics/providers.json') {
       if (url.searchParams.has('fixtures')) {
-        const data = await loadFixtures(env, fetchJson, true);
-        return json({ requests: data.requests, upcoming: data.fixtures.filter(data.isUpcoming).length }, 200, { 'cache-control': 'no-store' });
+        const data = await loadFixtures(env, fetchJson, cacheOptions);
+        return json({ requests: data.requests, upcoming: data.fixtures.filter(data.isUpcoming).length,
+          cached: data.cached, refreshedAt: new Date(data.refreshedAt).toISOString(), usedStale: data.usedStale
+        }, 200, { 'cache-control': 'no-store' });
       }
       return json(await providerDiagnostics(env), 200, { 'cache-control': 'no-store' });
     }
@@ -406,7 +432,7 @@ export default {
       const sport = catalog.sport;
       const upcoming = catalogId === 'upcoming_today';
       const checkLive = catalogId === 'live_now' || sport === 'other';
-      const fixtureData = loadFixtures(env, fetchJson, upcoming || Boolean(sport), { compact: checkLive });
+      const fixtureData = loadFixtures(env, fetchJson, { ...cacheOptions, compact: checkLive });
       const live = upcoming ? [] : await allEvents(env, fixtureData.then(({ fixtures }) => fixtures
         .filter(fixture => fixture.start <= Date.now() + 30 * 60000).map(fixtureEvent)));
       const matching = live.filter(event => matchesCatalog(event, catalog));

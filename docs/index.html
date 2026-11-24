@@ -6,7 +6,7 @@
   <meta name="description" content="Set up SportsHub with your own sports addons and Cloudflare account.">
   <title>SportsHub Setup</title>
   <link rel="stylesheet" href="wizard.css">
-  <script type="module" src="wizard.js"></script>
+  <script type="module" src="wizard.js?v=metadata"></script>
 </head>
 <body>
   <main>
@@ -106,6 +106,21 @@
           <input id="language-value" readonly>
           <button class="secondary" type="button" data-copy="language">Copy language value</button>
         </div>
+        <details>
+          <summary>Optional sports metadata API keys</summary>
+          <p>SportsHub works with these fields blank. To add more schedule and team-logo coverage, <a href="https://dashboard.api-football.com/" target="_blank" rel="noopener noreferrer">create a free API-Sports account ↗</a> and copy your API key from its dashboard. You can also use a <a href="https://www.thesportsdb.com/API.php" target="_blank" rel="noopener noreferrer">TheSportsDB v1 key ↗</a> if you have one.</p>
+          <p>Paste keys here to copy them into the matching Cloudflare secret fields. If a field is missing, add it as a Secret under your Worker’s <strong>Settings → Variables and Secrets</strong>. Keys entered here stay in this tab.</p>
+          <div class="copy-box">
+            <label for="api-sports-key">API_SPORTS_KEY</label>
+            <input id="api-sports-key" type="password" autocomplete="off" spellcheck="false">
+            <button class="secondary" type="button" data-secret="api-sports-key">Copy API-Sports key</button>
+          </div>
+          <div class="copy-box">
+            <label for="sportsdb-key">THESPORTSDB_API_KEY</label>
+            <input id="sportsdb-key" type="password" autocomplete="off" spellcheck="false">
+            <button class="secondary" type="button" data-secret="sportsdb-key">Copy TheSportsDB key</button>
+          </div>
+        </details>
         <a class="primary cta" href="https://deploy.workers.cloudflare.com/?url=https%3A%2F%2Fgithub.com%2Freelhumann-glitch%2Fsportshub" target="_blank" rel="noopener noreferrer">Deploy to Cloudflare ↗</a>
       </section>
       <section data-step="3" aria-labelledby="install-title" hidden>

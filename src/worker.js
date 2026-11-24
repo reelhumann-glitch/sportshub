@@ -6,10 +6,13 @@ import addon from './index.js';
 let init;
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, context) {
     const url = new URL(request.url);
     if (request.method !== 'GET' || !/^\/artwork\/(?:wide\/)?sh_[\w-]+\.png$/.test(url.pathname)) {
-      return addon.fetch(request, env, { artworkExtension: 'png' });
+      return addon.fetch(request, env, {
+        artworkExtension: 'png', metadataCache: globalThis.caches?.default,
+        waitUntil: context?.waitUntil.bind(context)
+      });
     }
 
     url.pathname = url.pathname.replace(/\.png$/, '.svg');
