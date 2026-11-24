@@ -7,7 +7,7 @@ const SPORTS = [
   ['tennis','Tennis'], ['motorsport','Motorsport'], ['rugby','Rugby'], ['other','Other Sports']
 ];
 const SPORT_ICONS = {soccer:'⚽',football:'🏈',basketball:'🏀',hockey:'🏒',baseball:'⚾',mma:'🥊',tennis:'🎾',motorsport:'🏎️',rugby:'🏉',other:'🏅'};
-const PROVIDER_LABELS = { NUVIO: 'Nuvio', HIGHFLY: 'HighFly', CNC: 'CNCVerse', PP: 'pp-live' };
+const PROVIDER_LABELS = { NUVIO: 'Nuvio', HIGHFLY: 'HighFly', CNC: 'CNCVerse', PP: 'PenguPlay' };
 const PROVIDERS = [
   { key: 'NUVIO', env: 'NUVIO_MANIFEST_URL', catalog: 'nuvio_sports_live', type: 'tv' },
   { key: 'HIGHFLY', env: 'HIGHFLY_MANIFEST_URL', catalog: 'sports_live', type: 'sport' },

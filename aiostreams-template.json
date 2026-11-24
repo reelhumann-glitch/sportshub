@@ -2,10 +2,10 @@
   "metadata": {
     "id": "sportshub.live-sports",
     "name": "SportsHub live sports",
-    "description": "Create a fresh sports configuration using your own addon manifest URLs. Enter at least one source.",
+    "description": "Configure each sports addon on its own setup page first, then paste its configured manifest URL here. Enter at least one source.",
     "author": "SportsHub",
     "category": "Sports",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "source": "external",
     "services": [],
     "inputs": [
@@ -29,7 +29,7 @@
       },
       {
         "id": "pp",
-        "name": "pp-live",
+        "name": "PenguPlay",
         "description": "Optional. Paste your own configured manifest URL.",
         "type": "url"
       }
@@ -92,7 +92,7 @@
         "instanceId": "a04",
         "enabled": true,
         "options": {
-          "name": "pp-live",
+          "name": "PenguPlay",
           "manifestUrl": "{{inputs.pp}}",
           "resources": [
             "catalog",

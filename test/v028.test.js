@@ -88,7 +88,7 @@ test('AIOStreams catalogs preserve provider routes through stream resolution', a
     { provider: 'PP', id: 'pp-live:80', viaAio: true }
   ]);
   const { streams } = await (await worker.fetch(new Request(`https://x/stream/tv/${metas[0].id}.json`), env)).json();
-  assert.deepEqual(streams.map(stream => stream.description.split('\n').at(-1)), ['Addon: HighFly', 'Addon: pp-live']);
+  assert.deepEqual(streams.map(stream => stream.description.split('\n').at(-1)), ['Addon: HighFly', 'Addon: PenguPlay']);
 });
 
 test('Upcoming Today falls back to scoreboard fixtures when the primary feed is throttled', async t => {

@@ -18,9 +18,12 @@ If you need to add or update a source after deployment, open your Worker in **Wo
 
 ### Optional AIOStreams template
 
-1. Open the [raw AIOStreams template](https://raw.githubusercontent.com/reelhumann-glitch/sportshub/main/aiostreams-template.json). Use that URL for a template URL import. For a file import, save the raw page as `aiostreams-template.json` and select that file in the template picker.
-2. Start a fresh sports configuration, enter at least one of your own supported addon manifests, and save. The template supplies its own addon list.
-3. Copy the new AIOStreams manifest URL into your Cloudflare `AIOSTREAMS_MANIFEST_URL` secret.
+1. **Configure each addon first.** Open its own setup page, save the options you want, and copy its configured manifest URL. Repeat for every addon you plan to use.
+2. Open the [raw AIOStreams template](https://raw.githubusercontent.com/reelhumann-glitch/sportshub/main/aiostreams-template.json). Use that URL for a template URL import. For a file import, save the raw page as `aiostreams-template.json` and select that file in the template picker.
+3. Start a fresh sports configuration, paste at least one configured addon manifest into its matching field, and save. The template supplies its own addon list and preserves upstream stream labels.
+4. Copy the new AIOStreams manifest URL into your Cloudflare `AIOSTREAMS_MANIFEST_URL` secret.
+
+SportsHub handles its own sport and league filters, highlights exclusion, language rules, and resolution-first sorting. The template connects the sources and leaves AIOStreams' filters and other preferences at the values already set in that configuration. Install the SportsHub manifest in Nuvio to see the curated catalogs.
 
 If you see `JSON.parse: unexpected character at line 1 column 1`, check that your file opens as JSON beginning with `{`. GitHub's regular file preview is an HTML page. Use the raw link above to get the JSON.
 
@@ -48,7 +51,7 @@ The Worker uses the default `workers.dev` route and needs no paid bindings or cu
 | HighFly Sports | `HIGHFLY_MANIFEST_URL` | `sports_live` |
 | CNCVerse | `CNC_MANIFEST_URL` | `cnc_SportzXLiveEvents_tv` |
 
-SportsHub recognizes NuvioLiveSports, HighFly Sports, CNCVerse, and pp-live through AIOStreams. It uses AIOStreams routes when advertised and falls back to configured direct bindings when those routes are unavailable. Source availability, supported catalog fields, and playback vary by addon. SportsHub uses a fixed set of source adapters.
+SportsHub recognizes NuvioLiveSports, HighFly Sports, CNCVerse, and PenguPlay through AIOStreams. It uses AIOStreams routes when advertised and falls back to configured direct bindings when those routes are unavailable. Source availability, supported catalog fields, and playback vary by addon. SportsHub uses a fixed set of source adapters.
 
 Keep your source manifests in Cloudflare secrets. Your Worker URL serves catalog and stream responses, so share this package with other users and use your deployed URL for your own setup.
 
