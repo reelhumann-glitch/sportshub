@@ -6,7 +6,7 @@
   <meta name="description" content="Set up SportsHub with your own sports addons and Cloudflare account.">
   <title>SportsHub Setup</title>
   <link rel="stylesheet" href="wizard.css">
-  <script type="module" src="wizard.js?v=metadata"></script>
+  <script type="module" src="wizard.js?v=api-step"></script>
 </head>
 <body>
   <main>
@@ -17,7 +17,7 @@
     <h1>Set up SportsHub</h1>
     <nav aria-label="Setup progress">
       <ol id="progress">
-        <li aria-current="step">Sources</li><li>Catalogs</li><li>Deploy</li><li>Install</li>
+        <li aria-current="step">Sources</li><li>Catalogs</li><li>API Keys</li><li>Deploy</li><li>Install</li>
       </ol>
     </nav>
     <div class="panel">
@@ -78,7 +78,22 @@
         </fieldset>
         <label id="unknown-option" hidden><input id="unknown-language" type="checkbox"> Include streams with unverified language</label>
       </section>
-      <section data-step="2" aria-labelledby="deploy-title" hidden>
+      <section data-step="2" aria-labelledby="api-title" hidden>
+        <h2 id="api-title" tabindex="-1">Optional sports metadata API keys</h2>
+        <p>Both keys are optional. The official PWHL schedule works without either key.</p>
+        <p><strong>API-Sports</strong> adds another source for schedules and team logos in supported soccer, basketball, hockey, and rugby leagues. Coverage depends on your plan. <a href="https://dashboard.api-football.com/" target="_blank" rel="noopener noreferrer">Create a free API-Sports account ↗</a> and copy your key from the dashboard.</p>
+        <p><strong>TheSportsDB</strong> uses the same fixture lookup with either key. Leave the field blank to use the shared public key. If you already have a <a href="https://www.thesportsdb.com/API.php" target="_blank" rel="noopener noreferrer">personal TheSportsDB v1 key ↗</a>, you can use it for higher limits and potentially more results.</p>
+        <p>Keys entered here stay in this tab until you copy them. You can copy them into Cloudflare from the Deploy step.</p>
+        <div class="copy-box">
+          <label for="api-sports-key">API-Sports key</label>
+          <input id="api-sports-key" type="password" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="copy-box">
+          <label for="sportsdb-key">TheSportsDB v1 key</label>
+          <input id="sportsdb-key" type="password" autocomplete="off" spellcheck="false">
+        </div>
+      </section>
+      <section data-step="3" aria-labelledby="deploy-title" hidden>
         <h2 id="deploy-title" tabindex="-1">Deploy to Cloudflare</h2>
         <details>
           <summary>New to Cloudflare?</summary>
@@ -90,7 +105,7 @@
           </ol>
         </details>
         <ol class="steps">
-          <li>Open the deploy page and sign in to Cloudflare. Connect GitHub when prompted.</li>
+          <li>Click <strong>Deploy to Cloudflare</strong>, sign in, and connect GitHub. Cloudflare copies the SportsHub repository and prepares the Worker and its setup fields.</li>
           <li>In the secret fields, paste your configured AIOStreams manifest under <code>AIOSTREAMS_MANIFEST_URL</code>. For direct addons, use the matching source fields.</li>
           <li id="custom-deploy" hidden>Paste the value below into <code>SPORTHUB_CATALOGS</code>. If the field is missing, add it in your Worker's <strong>Settings → Variables and Secrets</strong>.</li>
           <li id="language-deploy" hidden>Paste the language value below into <code>SPORTHUB_STREAM_LANGUAGES</code>. If the field is missing, add it in the same Worker settings.</li>
@@ -106,26 +121,16 @@
           <input id="language-value" readonly>
           <button class="secondary" type="button" data-copy="language">Copy language value</button>
         </div>
-        <details>
-          <summary>Optional sports metadata API keys</summary>
-          <p>Both keys are optional. The official PWHL schedule is available with either field blank.</p>
-          <p><strong>API-Sports</strong> adds another source for schedules and team logos in supported soccer, basketball, hockey, and rugby leagues. Coverage depends on your plan. <a href="https://dashboard.api-football.com/" target="_blank" rel="noopener noreferrer">Create a free API-Sports account ↗</a> and copy your key from the dashboard.</p>
-          <p><strong>TheSportsDB</strong> uses the same fixture lookup with either key. Leave the field blank to use the shared public key. If you already have a <a href="https://www.thesportsdb.com/API.php" target="_blank" rel="noopener noreferrer">personal TheSportsDB v1 key ↗</a>, you can use it for higher limits and potentially more results.</p>
-          <p>Paste keys here to copy them into the matching Cloudflare secret fields. If a field is missing, add it as a Secret under your Worker’s <strong>Settings → Variables and Secrets</strong>. Keys entered here stay in this tab.</p>
-          <div class="copy-box">
-            <label for="api-sports-key">API_SPORTS_KEY</label>
-            <input id="api-sports-key" type="password" autocomplete="off" spellcheck="false">
-            <button class="secondary" type="button" data-secret="api-sports-key">Copy API-Sports key</button>
+        <div id="deploy-keys" hidden>
+          <p>Copy each key you entered into its matching Cloudflare secret. If a field is missing, add it as a Secret under <strong>Settings → Variables and Secrets</strong>.</p>
+          <div class="actions">
+            <button class="secondary" type="button" data-secret="api-sports-key">Copy API_SPORTS_KEY</button>
+            <button class="secondary" type="button" data-secret="sportsdb-key">Copy THESPORTSDB_API_KEY</button>
           </div>
-          <div class="copy-box">
-            <label for="sportsdb-key">THESPORTSDB_API_KEY</label>
-            <input id="sportsdb-key" type="password" autocomplete="off" spellcheck="false">
-            <button class="secondary" type="button" data-secret="sportsdb-key">Copy TheSportsDB key</button>
-          </div>
-        </details>
+        </div>
         <a class="primary cta" href="https://deploy.workers.cloudflare.com/?url=https%3A%2F%2Fgithub.com%2Freelhumann-glitch%2Fsportshub" target="_blank" rel="noopener noreferrer">Deploy to Cloudflare ↗</a>
       </section>
-      <section data-step="3" aria-labelledby="install-title" hidden>
+      <section data-step="4" aria-labelledby="install-title" hidden>
         <h2 id="install-title" tabindex="-1">Install in Nuvio</h2>
         <p>Add <code>/manifest.json</code> to the end of your Worker's HTTPS address.</p>
         <div class="copy-box">
