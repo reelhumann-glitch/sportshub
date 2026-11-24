@@ -18,7 +18,11 @@ If you need to add or update a source after deployment, open your Worker in **Wo
 
 ### Optional AIOStreams template
 
-Use [aiostreams-template.json](aiostreams-template.json) to start a fresh sports configuration on your own AIOStreams instance. Import it from AIOStreams’ template picker using the raw GitHub file URL, enter at least one of your own supported addon manifests, and save. Copy the new AIOStreams manifest URL into your Cloudflare `AIOSTREAMS_MANIFEST_URL` secret. Use a fresh configuration because the template supplies its own addon list.
+1. Open the [raw AIOStreams template](https://raw.githubusercontent.com/reelhumann-glitch/sportshub/main/aiostreams-template.json). Use that URL for a template URL import. For a file import, save the raw page as `aiostreams-template.json` and select that file in the template picker.
+2. Start a fresh sports configuration, enter at least one of your own supported addon manifests, and save. The template supplies its own addon list.
+3. Copy the new AIOStreams manifest URL into your Cloudflare `AIOSTREAMS_MANIFEST_URL` secret.
+
+If you see `JSON.parse: unexpected character at line 1 column 1`, check that your file opens as JSON beginning with `{`. GitHub's regular file preview is an HTML page. Use the raw link above to get the JSON.
 
 The template was built from scratch with blank inputs. It contains no existing manifest URLs, configuration identifiers or account credentials.
 
