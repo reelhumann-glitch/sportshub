@@ -3,6 +3,43 @@ import assert from 'node:assert/strict';
 import worker,{eventFrom,manifest,makeId,parseId,isUsableStream,appendPath} from '../src/index.js';
 import { rankStreams } from '../src/stream-quality.js';
 
+test('league catalogs are opt-in and keep NBA, WNBA, and the sport row distinct', async t => {
+  t.mock.method(globalThis, 'fetch', async input => new URL(input).hostname === 'provider.test'
+    ? Response.json({ metas: [
+      live('Boston vs New York', 'basketball', 'League: NBA Playoffs'),
+      live('Seattle vs Phoenix', 'basketball', 'League: WNBA'),
+      live('Duke vs Kansas', 'basketball', 'League: NCAA Basketball')
+    ] })
+    : Response.json({ events: [] }));
+  const env = { NUVIO_MANIFEST_URL: 'https://provider.test/manifest.json',
+    SPORTHUB_CATALOGS: 'sport_basketball,league_nba,league_wnba,league_pwhl' };
+  const get = async id => (await (await worker.fetch(new Request(`https://x/catalog/tv/${id}.json`), env)).json()).metas.map(e => e.name);
+  assert.equal(manifest().catalogs.some(catalog => catalog.id.startsWith('league_')), false);
+  assert.deepEqual(await get('league_nba'), ['Boston vs New York']);
+  assert.deepEqual(await get('league_wnba'), ['Seattle vs Phoenix']);
+  assert.deepEqual(await get('sport_basketball'), ['Boston vs New York', 'Seattle vs Phoenix', 'Duke vs Kansas']);
+  assert.deepEqual(await get('league_pwhl'), ['No games today']);
+});
+
+test('stream language preferences support strict, selected, and unrestricted lists', async t => {
+  t.mock.method(globalThis, 'fetch', async () => Response.json({ streams: [
+    { name: '1080p English', url: 'https://video.test/en.m3u8' },
+    { name: '1080p', audioLanguages: [{ code: 'ES-MX' }], url: 'https://video.test/es.m3u8' },
+    { description: '720p [FR]', url: 'https://video.test/fr.m3u8' },
+    { name: '720p unlabeled', url: 'https://video.test/unknown.m3u8' }
+  ] }));
+  const id = makeId({ sourceIds: [{ provider: 'NUVIO', id: 'abc' }] });
+  const get = async preference => {
+    const env = { NUVIO_MANIFEST_URL: 'https://provider.test/manifest.json', SPORTHUB_STREAM_LANGUAGES: preference };
+    const { streams } = await (await worker.fetch(new Request(`https://x/stream/tv/${id}.json`), env)).json();
+    return streams.map(stream => stream.name.split(' · ').at(-1));
+  };
+  assert.deepEqual(await get(''), ['English', 'Language unverified']);
+  assert.deepEqual(await get('english'), ['English']);
+  assert.deepEqual(await get('es,fr,unknown'), ['Spanish', 'French', 'Language unverified']);
+  assert.deepEqual(await get('any'), ['English', 'Spanish', 'French', 'Language unverified']);
+});
+
 test('catalog preferences expose only the selected rows and keep standard defaults', async () => {
   const env = { SPORTHUB_CATALOGS: ' sport_rugby,upcoming_today,unknown,sport_rugby ' };
   const response = await worker.fetch(new Request('https://x/manifest.json'), env);

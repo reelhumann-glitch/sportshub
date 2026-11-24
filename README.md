@@ -21,7 +21,8 @@ If you need to add or update a source after deployment, open your Worker in **Wo
 2. Choose a Worker name and fill in `AIOSTREAMS_MANIFEST_URL` or the matching direct source secret fields. Leave unused fields blank. You can also add secrets in the Worker settings after deploying.
 3. Deploy. Copy the Worker’s HTTPS address, append `/manifest.json`, and open it in your browser to check that it returns the SportsHub manifest.
 4. In Nuvio, open **Settings → Addons → Add Addon**, paste the SportsHub manifest URL, and install it. Open **Live Now** or **Upcoming Today** to check the setup.
-5. Optionally set `SPORTHUB_CATALOGS` in Cloudflare to the comma-separated list from the wizard. Leave it blank for all standard catalogs.
+5. Optionally paste the wizard’s `SPORTHUB_CATALOGS` value into Cloudflare to choose sport and league rows. Leave it blank for the standard catalogs.
+6. Optionally paste the wizard’s `SPORTHUB_STREAM_LANGUAGES` value into Cloudflare. Leave it blank for English preferred, which includes unlabeled feeds.
 
 ### Optional AIOStreams template
 

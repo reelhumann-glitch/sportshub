@@ -82,12 +82,11 @@ export async function rankStreams(candidates) {
   return entries.sort((a, b) => b.quality.height - a.quality.height
     || Number(b.language === 'english') - Number(a.language === 'english')
     || b.quality.bitrate - a.quality.bitrate)
-    .map(({ stream, provider, language, quality }) => {
+    .map(({ stream, provider, language, languageLabel, quality }) => {
       const { name, title, description, ...playback } = stream;
       const resolutionLabel = quality.height ? `${quality.adaptive ? 'Up to ' : ''}${quality.height}p` : 'Quality unknown';
       const bitrateLabel = quality.bitrate ? `${Number((quality.bitrate / 1e6).toFixed(2))} Mbps ${quality.bitrateType}` : 'Bitrate unknown';
-      const languageLabel = language === 'english' ? 'English' : 'Language unverified';
       const details = [...new Set([name, title, description].filter(Boolean)), `Addon: ${provider}`].join('\n');
-      return { ...playback, name: [resolutionLabel, bitrateLabel, languageLabel].join(' · '), description: details };
+      return { ...playback, name: [resolutionLabel, bitrateLabel, languageLabel || (language === 'english' ? 'English' : 'Language unverified')].join(' · '), description: details };
     });
 }

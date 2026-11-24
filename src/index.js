@@ -1,6 +1,7 @@
 import { loadFixtures, matchupPoster } from './fixtures.js';
 import { rankStreams } from './stream-quality.js';
-import { enabledCatalogs, sports } from '../docs/catalogs.js';
+import { classifyLanguage, streamLanguageAllowed } from './stream-language.js';
+import { catalogs, enabledCatalogs, sports } from '../docs/catalogs.js';
 
 const SPORTS = sports.map(([id, name]) => [id, name]);
 const SPORT_ICONS = Object.fromEntries(sports.map(([id, , icon]) => [id, icon]));
@@ -29,7 +30,7 @@ function sportFrom(item, provider, cnc) {
     cnc?.eventInfo?.league, cnc?.eventInfo?.competition].join(' ').toLowerCase();
   if (!/\bhandball\b/.test(category) && /\brugby\b|\bsix nations\b/.test(rugbyLabel)) return 'rugby';
   // Specific American football clues override ambiguous provider category 'football'.
-  if (/american[ -]football|\bnfl\b|\bncaa\s*(?:football|fb|cfb)\b|college football|\bcfl\b|\b(xfl|ufl|usfl)\b/.test(all)) return 'football';
+  if (/american[ -]football|national football league|\bnfl\b|\bncaa\s*(?:football|fb|cfb)\b|college football|\bcfl\b|\b(xfl|ufl|usfl)\b/.test(all)) return 'football';
   if (/\bwnba\b|\bnba\b|basketball|\bncaab\b|college hoops|march madness|euroleague|\bfiba\b/.test(all)) return 'basketball';
   if (/\bpwhl\b|\bnhl\b|ice hockey|hockey|\bkhl\b|\bahl\b/.test(all)) return 'hockey';
   if (/\bmlb\b|baseball|world baseball classic|\bnpb\b|\bkbo\b/.test(all)) return 'baseball';
@@ -39,8 +40,8 @@ function sportFrom(item, provider, cnc) {
   if (/soccer|football|premier league|champions league|bundesliga|la liga|serie a|ligue 1/.test(all)) return 'soccer';
   return 'other';
 }
-const MAJOR_BASKETBALL = /\bnba\b|\bwnba\b|\bncaa\b|\bncaab\b|college basketball|march madness|\bacc\b|\bbig (?:ten|12|east)\b|\bsec\b|\bpac[- ]?12\b/;
-const MAJOR_FOOTBALL = /\bnfl\b|\bncaa\b|college football|\bcfb\b|\bfbs\b|college football playoff|\bcfp\b|\bbig (?:ten|12)\b|\bsec\b|\bacc\b|\bpac[- ]?12\b/;
+const MAJOR_BASKETBALL = /\bnba\b|\bwnba\b|national basketball association|\bncaa\b|\bncaab\b|college basketball|march madness|\bacc\b|\bbig (?:ten|12|east)\b|\bsec\b|\bpac[- ]?12\b/;
+const MAJOR_FOOTBALL = /\bnfl\b|national football league|\bncaa\b|college football|\bcfb\b|\bfbs\b|college football playoff|\bcfp\b|\bbig (?:ten|12)\b|\bsec\b|\bacc\b|\bpac[- ]?12\b/;
 const EXCLUDED_BASKETBALL = /euroleague|eurocup|\bfiba\b|\bacb\b|liga endesa|\bnbl\b|\bcba\b|\bbl\b|\blnb\b|\bleg[a]? basket\b|\bgleague\b|g league|development league|high school|\bu\s?1[6789]\b|under[- ]?1[6789]/;
 const EXCLUDED_FOOTBALL = /\bcfl\b|canadian football|\b(xfl|ufl|usfl)\b|european league of football|\belf\b|arena football|indoor football|high school|\bfcs\b|division ii|division iii/;
 const TOP_SOCCER = /^(?:(?:english |england )?premier league|epl|(?:spanish |spain )?la ?liga|(?:italian |italy )?serie a|(?:german |germany )?bundesliga|(?:french |france )?ligue 1|(?:english )?fa cup|copa del rey|dfb pokal|coppa italia|coupe de france|(?:uefa )?(?:champions league|europa league|european championship|euro(?: 20\d{2})?)|(?:fifa )?(?:world cup|club world cup)(?: 20\d{2})?|(?:conmebol )?(?:copa america|copa libertadores))$/;
@@ -159,7 +160,7 @@ function b64url(text) { return btoa(unescape(encodeURIComponent(text))).replace(
 function unb64url(text) { const s = text.replace(/-/g, '+').replace(/_/g, '/'); return decodeURIComponent(escape(atob(s + '='.repeat((4 - s.length % 4) % 4)))); }
 function makeId(event) { return `sh_${b64url(JSON.stringify({ v: 1, sources: event.sourceIds, name: event.name, poster: event.poster, background: event.background, description: event.description, competition: event.competition, sport: event.sport, teamA: event.teamA, teamB: event.teamB, badgeA: event.badgeA, badgeB: event.badgeB, start: event.start, timeLabel: event.timeLabel, upcoming: event.upcoming }))}`; }
 function emptySport(sport) {
-  const name = SPORTS.find(([id]) => id === sport)?.[1];
+  const name = SPORTS.find(([id]) => id === sport)?.[1] || catalogs.find(catalog => catalog.id === sport)?.league;
   return name ? {
     sport, name: 'No games today', competition: name, releaseInfo: 'No games today',
     description: `No live or upcoming games are listed for ${name} today.`, sourceIds: []
@@ -249,9 +250,24 @@ function fixtureEvent(fixture) {
   const sport = sportFrom({ category: fixture.category, competition: fixture.competition, title: fixture.title });
   return { ...fixture, sport, name: displayEventName(fixture.title || fixture.teamA, fixture.teamA, fixture.teamB) };
 }
-function upcomingEvents({ fixtures, isUpcoming }, sport) {
+function matchesCatalog(event, catalog) {
+  if (catalog.sport && event.sport !== catalog.sport) return false;
+  if (!catalog.league) return true;
+  const league = String(event.competition || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim()
+    .replace(/ (?:PRESEASON|REGULAR SEASON|PLAYOFFS|FINALS|CUP|POSTSEASON)$/, '');
+  const aliases = {
+    NBA: ['NBA', 'NATIONAL BASKETBALL ASSOCIATION'],
+    WNBA: ['WNBA', 'WOMEN S NATIONAL BASKETBALL ASSOCIATION'],
+    NHL: ['NHL', 'NATIONAL HOCKEY LEAGUE'],
+    PWHL: ['PWHL', 'PROFESSIONAL WOMEN S HOCKEY LEAGUE'],
+    NFL: ['NFL', 'NATIONAL FOOTBALL LEAGUE'],
+    MLB: ['MLB', 'MAJOR LEAGUE BASEBALL']
+  };
+  return aliases[catalog.league].includes(league);
+}
+function upcomingEvents({ fixtures, isUpcoming }, catalog) {
   return fixtures.filter(isUpcoming).reverse().map(fixtureEvent)
-    .filter(event => (!sport || event.sport === sport) && eligibleEvent(event.sport, event, null, event.competition))
+    .filter(event => matchesCatalog(event, catalog) && eligibleEvent(event.sport, event, null, event.competition))
     .filter((event, index, events) => !events.slice(0, index).some(previous =>
       Math.abs(previous.start - event.start) < 20 * 60000 && sameFixture(previous, event)))
     .sort((a, b) => a.start - b.start)
@@ -311,50 +327,20 @@ function isPosterMatchup(event) {
 }
 function streamUrl(base, type, id) { return appendPath(base, `stream/${type}/${encodeURIComponent(id)}.json`); }
 
-const NON_ENGLISH_WORDS = /\b(spanish|espanol|español|castellano|portuguese|portugues|português|arabic|عربي|french|français|german|deutsch|italian|italiano|hindi|urdu|русский|russian|turkish|türkçe|greek|hebrew|persian|farsi|chinese|mandarin|cantonese|japanese|korean|bengali|tamil|telugu|malayalam|thai|indonesian|dutch|polish|romanian|serbian|croatian|czech|slovak|hungarian|swedish|norwegian|danish|finnish|ukrainian|vietnamese|filipino|tagalog)\b/i;
-const NON_ENGLISH_CODES = new Set(['es','spa','esp','pt','por','br','ara','ar','fr','fra','fre','de','deu','ger','it','ita','hi','hin','ur','urd','ru','rus','tr','tur','el','ell','gre','he','heb','fa','fas','per','zh','zho','chi','ja','jpn','ko','kor','bn','ben','ta','tam','te','tel','ml','mal','th','tha','id','ind','nl','nld','dut','pl','pol','ro','ron','rum','sr','srp','hr','hrv','cs','ces','cze','sk','slk','hu','hun','sv','swe','no','nor','da','dan','fi','fin','uk','ukr','vi','vie','tl','tgl']);
-const ENGLISH_CODES = new Set(['en','eng','english','en-us','en-gb','en-ca','en-au']);
-function languageValues(value) {
-  if (Array.isArray(value)) return value.flatMap(languageValues);
-  if (value && typeof value === 'object') return ['code','name','language','lang','value'].flatMap(k => value[k] == null ? [] : languageValues(value[k]));
-  return value == null ? [] : [String(value).trim().toLowerCase()];
+function isEnglishStream(stream) {
+  return classifyLanguage(stream).language === 'english';
 }
-function hasCodeMarker(text, codes) {
-  const tokens = text.split(/[\s()[\]{}|,;:/_-]+/);
-  if (tokens.some(token => token.length >= 3 && codes.has(token))) return true;
-  return /\[(?:es|pt|br|ar|fr|de|it|hi|ur|ru|tr|el|he|fa|zh|ja|ko|bn|ta|te|ml|th|id|nl|pl|ro|sr|hr|cs|sk|hu|sv|no|da|fi|uk|vi|tl)\]|\((?:es|pt|br|ar|fr|de|it|hi|ur|ru|tr|el|he|fa|zh|ja|ko|bn|ta|te|ml|th|id|nl|pl|ro|sr|hr|cs|sk|hu|sv|no|da|fi|uk|vi|tl)\)/i.test(text);
+function isUsableStream(stream, preference) {
+  return !!stream && !isPromo(stream) && !stream.externalUrl && !!(stream.url || stream.infoHash || stream.ytId)
+    && streamLanguageAllowed(classifyLanguage(stream), preference);
 }
-function isEnglishStream(s) {
-  if (!s) return false;
-  const fields = ['language','lang','audioLanguage','audio_language','audioLang','audio_lang','languages','audioLanguages','audio_languages'];
-  const metadata = fields.flatMap(k => languageValues(s[k]));
-  // A known non-English language always wins, including mixed-language feeds.
-  if (metadata.some(v => NON_ENGLISH_WORDS.test(v) || NON_ENGLISH_CODES.has(v))) return false;
-  const explicitEnglish = metadata.some(v => ENGLISH_CODES.has(v) || /\benglish\b/i.test(v));
-  const label = [s.name, s.title, s.description, s.language, s.lang, s.audioLanguage, s.audio_language].filter(Boolean).join(' ');
-  if (NON_ENGLISH_WORDS.test(label) || hasCodeMarker(label.toLowerCase(), NON_ENGLISH_CODES)) return false;
-  if (explicitEnglish || /\benglish\b|\beng(?:lish)?\b|\[en(?:g)?\]|\(en(?:g)?\)|\ben[-_](?:us|gb|ca|au)\b/i.test(label)) return true;
-  // These broadcasters' standard sports feeds are English-language in the source catalog.
-  // Explicit non-English markers above still override this allowlist.
-  return /\b(sky sports|espn(?! deportes)|tnt sports|fox sports|nbc sports|cbs sports|sportsnet|tsn|willow(?: 1| 2| sports)?|bbc sport|itv sport|premier sports|bt sport)\b/i.test(label);
-}
-function streamLanguage(s) {
-  const fields = ['language','lang','audioLanguage','audio_language','audioLang','audio_lang','languages','audioLanguages','audio_languages'];
-  const metadata = fields.flatMap(k => languageValues(s?.[k]));
-  const label = [s?.name,s?.title,s?.description].filter(Boolean).join(' ');
-  if (metadata.some(v => NON_ENGLISH_WORDS.test(v) || NON_ENGLISH_CODES.has(v)) || NON_ENGLISH_WORDS.test(label) || hasCodeMarker(label.toLowerCase(), NON_ENGLISH_CODES)) return 'non-english';
-  if (metadata.some(v => ENGLISH_CODES.has(v) || /\benglish\b/.test(v)) || /\benglish\b|\beng\b|\[en(?:g)?\]|\(en(?:g)?\)/i.test(label)) return 'english';
-  if (/\b(sky sports|espn(?! deportes)|tnt sports|fox sports|nbc sports|cbs sports|sportsnet|tsn|willow(?: sports)?|bbc sport|itv sport|premier sports|bt sport)\b/i.test(label)) return 'english';
-  return 'unknown';
-}
-function isUsableStream(s) { return !!s && !isPromo(s) && !s.externalUrl && !!(s.url || s.infoHash || s.ytId) && streamLanguage(s) !== 'non-english'; }
 async function sourceStreams(src, env, timeout) {
   const provider = AIO_PROVIDERS.find(p => p.key === src.provider);
   if (!provider) return [];
   const base = src.viaAio ? env.AIOSTREAMS_MANIFEST_URL : env[provider.env];
   if (!base) return [];
   const data = await fetchJson(streamUrl(base, provider.type, src.id), timeout);
-  return arr(data.streams).filter(isUsableStream);
+  return arr(data.streams).filter(stream => isUsableStream(stream, env.SPORTHUB_STREAM_LANGUAGES));
 }
 async function visibleLiveEvents(events, env) {
   const other = events.filter(event => event.sport === 'other');
@@ -373,7 +359,7 @@ async function visibleLiveEvents(events, env) {
 async function fetchStreams(sourceIds, env) {
   const tasks = sourceIds.map(async src => {
     const streams = await sourceStreams(src, env, 12000);
-    return streams.map(stream => ({stream, provider:PROVIDER_LABELS[src.provider], language:streamLanguage(stream)}));
+    return streams.map(stream => ({ stream, provider: PROVIDER_LABELS[src.provider], ...classifyLanguage(stream) }));
   });
   const settled = await Promise.allSettled(tasks);
   const candidates = settled.flatMap(r => r.status === 'fulfilled' ? r.value : []);
@@ -382,9 +368,9 @@ async function fetchStreams(sourceIds, env) {
 function manifest(env = {}) {
   return {
     id: 'community.sportshub.live', version: '0.2.9', name: 'SportsHub',
-    description: 'Live sports and today’s upcoming games, with English feeds prioritized.',
+    description: 'Live sports and today’s upcoming games, with configurable stream languages.',
     resources: ['catalog', 'meta', 'stream'], types: ['tv'], idPrefixes: ['sh_'],
-    catalogs: enabledCatalogs(env.SPORTHUB_CATALOGS).map(catalog => ({ type: 'tv', ...catalog })),
+    catalogs: enabledCatalogs(env.SPORTHUB_CATALOGS).map(({ id, name, extra }) => ({ type: 'tv', id, name, extra })),
     behaviorHints: { configurable: false, configurationRequired: false }
   };
 }
@@ -415,21 +401,20 @@ export default {
     const catalogMatch = url.pathname.match(/^\/catalog\/tv\/([^/]+)\.json$/);
     if (catalogMatch) {
       const catalogId = decodeURIComponent(catalogMatch[1]);
-      const sport = catalogId.startsWith('sport_') ? catalogId.slice(6) : null;
+      const catalog = enabledCatalogs(env.SPORTHUB_CATALOGS).find(candidate => candidate.id === catalogId);
+      if (!catalog) return json({ error: 'Catalog not found' }, 404);
+      const sport = catalog.sport;
       const upcoming = catalogId === 'upcoming_today';
-      if (!enabledCatalogs(env.SPORTHUB_CATALOGS).some(catalog => catalog.id === catalogId)) {
-        return json({ error: 'Catalog not found' }, 404);
-      }
       const checkLive = catalogId === 'live_now' || sport === 'other';
       const fixtureData = loadFixtures(env, fetchJson, upcoming || Boolean(sport), { compact: checkLive });
       const live = upcoming ? [] : await allEvents(env, fixtureData.then(({ fixtures }) => fixtures
         .filter(fixture => fixture.start <= Date.now() + 30 * 60000).map(fixtureEvent)));
-      const matching = sport ? live.filter(event => event.sport === sport) : live;
+      const matching = live.filter(event => matchesCatalog(event, catalog));
       const current = checkLive ? await visibleLiveEvents(matching, env) : matching;
-      const scheduled = upcoming || (sport && sport !== 'other') ? upcomingEvents(await fixtureData, sport) : [];
+      const scheduled = upcoming || (sport && sport !== 'other') ? upcomingEvents(await fixtureData, catalog) : [];
       const events = [...current, ...scheduled.filter(event => !current.some(match =>
         sameFixture(match, event) && (!match.start || Math.abs(match.start - event.start) < 20 * 60000)))];
-      const empty = !events.length && sport && emptySport(sport);
+      const empty = !events.length && sport && emptySport(catalog.league ? catalog.id : sport);
       if (empty) events.push(empty);
       const metas = events.map(event => metaOf(event, url.origin, artworkExtension));
       return json({ metas, cacheMaxAge: 15, staleRevalidate: 10, staleError: 30 }, 200, { 'cache-control': 'public, max-age=15' });

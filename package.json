@@ -22,6 +22,9 @@
       },
       "SPORTHUB_CATALOGS": {
         "description": "Optional. Leave blank for standard catalogs, or paste the catalog list from the SportsHub setup wizard."
+      },
+      "SPORTHUB_STREAM_LANGUAGES": {
+        "description": "Optional. Leave blank for English preferred, or paste the language setting from the SportsHub wizard."
       }
     }
   },
