@@ -1,10 +1,10 @@
 # SportsHub 0.2.9
 
-SportsHub is a self-hosted sports addon for Nuvio. It combines your sports sources with live games, upcoming fixtures, and matchup artwork.
+SportsHub is a self-hosted sports addon for Nuvio that shows live games, upcoming fixtures, and matchup artwork. It uses one AIOStreams manifest URL. To use multiple sports addons, combine them in the same AIOStreams configuration.
 
 **[Start Setup →](https://reelhumann-glitch.github.io/sportshub/)**
 
-The wizard guides you through sources, optional catalog selection, Cloudflare deployment, and installation in Nuvio.
+The wizard guides you through AIOStreams setup, optional catalog selection, Cloudflare deployment, and installation in Nuvio.
 
 <details>
 <summary>Manual browser setup and troubleshooting</summary>
@@ -13,9 +13,9 @@ The wizard guides you through sources, optional catalog selection, Cloudflare de
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https%3A%2F%2Fgithub.com%2Freelhumann-glitch%2Fsportshub)
 
-1. Click **Deploy to Cloudflare**, connect your GitHub account, choose a Worker name, and deploy.
-2. Open your Worker in **Workers & Pages → Settings → Variables and Secrets**. Add your configured AIOStreams manifest as an `AIOSTREAMS_MANIFEST_URL` secret, or add one or more direct addon manifests as secrets using the names below. Add only the sources you use.
-3. For custom catalogs or language preferences, add the wizard’s `SPORTHUB_CATALOGS` or `SPORTHUB_STREAM_LANGUAGES` values as text variables in the same settings. Save and deploy your changes.
+1. Click **Deploy to Cloudflare**, connect your GitHub account, and choose a Worker name.
+2. Paste your configured AIOStreams manifest URL into `AIOSTREAMS_MANIFEST_URL` and click **Deploy**.
+3. For custom catalogs or language preferences, add the wizard’s `SPORTHUB_CATALOGS` or `SPORTHUB_STREAM_LANGUAGES` values under **Workers & Pages → Settings → Variables and Secrets** as text variables. Save and deploy your changes.
 4. Copy your Worker’s HTTPS address, append `/manifest.json`, and open it in your browser to check that it returns the SportsHub manifest.
 5. In Nuvio, open **Settings → Addons → Add Addon**, paste the SportsHub manifest URL, and install it. Open **Live Now** or **Upcoming Today** to check the setup.
 
@@ -39,33 +39,20 @@ The template was built from scratch with blank inputs. It contains no existing m
 
 ## Terminal setup
 
-You’ll need Node.js 22.12 or newer, a Cloudflare Workers account, and at least one supported addon manifest URL. Extract the ZIP and open a terminal in the extracted folder. In Windows PowerShell, use `npm.cmd` if `npm` is blocked by your execution policy.
+You’ll need Node.js 22.12 or newer, a Cloudflare Workers account, and a configured AIOStreams manifest URL. Extract the ZIP and open a terminal in the extracted folder. In Windows PowerShell, use `npm.cmd` if `npm` is blocked by your execution policy.
 
 ```sh
 npm ci
 node setup.mjs
 ```
 
-Choose `aio` for your own configured AIOStreams manifest, or enter any combination of `nuvio, highfly, cnc` for direct addons. You can combine AIOStreams and direct sources. The setup opens Cloudflare login, deploys the Worker, and prompts for each chosen manifest URL using Wrangler’s secret input. If Wrangler asks you to choose an account, select the same account throughout. Add `/manifest.json` to the HTTPS Worker URL that Wrangler prints and install it in Nuvio.
+The setup opens Cloudflare login, deploys the Worker, and prompts for your AIOStreams manifest URL using Wrangler’s secret input. If Wrangler asks you to choose an account, select the same account throughout. Add `/manifest.json` to the HTTPS Worker URL that Wrangler prints and install it in Nuvio.
 
 The Worker uses the default `workers.dev` route and needs no paid bindings or custom domain. If your account already has a Worker named `sportshub-addon`, change `name` in `wrangler.toml` before running setup to create a separate deployment.
 
-## Supported sources
-
-| Source | Secret | Expected catalog |
-| --- | --- | --- |
-| AIOStreams | `AIOSTREAMS_MANIFEST_URL` | Configured sports addons exposing their live catalogs |
-| NuvioLiveSports | `NUVIO_MANIFEST_URL` | `nuvio_sports_live` |
-| HighFly Sports | `HIGHFLY_MANIFEST_URL` | `sports_live` |
-| CNCVerse | `CNC_MANIFEST_URL` | `cnc_SportzXLiveEvents_tv` |
-
-SportsHub recognizes NuvioLiveSports, HighFly Sports, CNCVerse, and PenguPlay through AIOStreams. It uses AIOStreams routes when advertised and falls back to configured direct bindings when those routes are unavailable. Source availability, supported catalog fields, and playback vary by addon. SportsHub uses a fixed set of source adapters.
-
-Keep your source manifests in Cloudflare secrets. Your Worker URL serves catalog and stream responses, so share this package with other users and use your deployed URL for your own setup.
-
 ## Manual setup and checks
 
-Install dependencies with `npm ci`, sign into your own account with `npx wrangler login`, run `npm run deploy`, then set each source using `npx wrangler secret put SECRET_NAME`. On Windows PowerShell, use `npx.cmd` if needed.
+Install dependencies with `npm ci`, sign into your own account with `npx wrangler login`, run `npm run deploy`, then set your AIOStreams manifest using `npx wrangler secret put AIOSTREAMS_MANIFEST_URL`. On Windows PowerShell, use `npx.cmd` if needed.
 
 ## Sports metadata
 
@@ -77,6 +64,6 @@ SportsHub caches fixture snapshots for 10 minutes at each Cloudflare edge locati
 - `/diagnostics/providers.json` reports source catalog status without returning manifest URLs.
 - `npm test` runs the local tests.
 
-For local development, copy `dev.vars.example` to `.dev.vars`, add your own source URLs, and run `npm run dev`. The included Atkinson Hyperlegible Next font license is in `assets/OFL.txt`.
+For local development, copy `dev.vars.example` to `.dev.vars`, add your AIOStreams manifest URL, and run `npm run dev`. The included Atkinson Hyperlegible Next font license is in `assets/OFL.txt`.
 
 </details>

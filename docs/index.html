@@ -17,18 +17,18 @@
     <h1>Set up SportsHub</h1>
     <nav aria-label="Setup progress">
       <ol id="progress">
-        <li aria-current="step">Sources</li><li>Catalogs</li><li>Deploy</li><li>Install</li>
+        <li aria-current="step">AIOStreams</li><li>Catalogs</li><li>Deploy</li><li>Install</li>
       </ol>
     </nav>
     <div class="panel">
       <section data-step="0" aria-labelledby="sources-title">
-        <h2 id="sources-title" tabindex="-1">Choose your sources</h2>
+        <h2 id="sources-title" tabindex="-1">Set up AIOStreams</h2>
         <fieldset class="choices">
           <legend>Do you already have AIOStreams set up with your sports addons?</legend>
           <label><input type="radio" name="source" value="existing" checked> Yes, I have AIOStreams set up with my sports addons</label>
           <label><input type="radio" name="source" value="setup"> No, help me set up my sports addons</label>
         </fieldset>
-        <p>Use the AIOStreams configuration that contains your sports addons. If you keep a separate one for movies and TV, use your sports configuration here.</p>
+        <p>SportsHub uses one AIOStreams manifest URL. To use multiple sports addons, combine them in the same AIOStreams configuration. If you keep a separate one for movies and TV, use your sports configuration here.</p>
         <p>SportsHub shows live games and upcoming fixtures. Replays and highlights won’t appear in SportsHub, even if you enable them in your source addons.</p>
         <div id="source-setup" hidden>
           <p>Configure each addon first. Save its settings and copy the manifest URL it gives you.</p>
@@ -45,10 +45,6 @@
             <button type="button" class="link-button" data-copy="template">Copy template URL</button>
           </div>
         </div>
-        <details>
-          <summary>Using direct addon manifests instead?</summary>
-          <p>SportsHub can use NuvioLiveSports, HighFly Sports, and CNCVerse directly. Configure them first, then enter their manifest URLs in the matching Cloudflare fields during deployment. PenguPlay uses the AIOStreams path.</p>
-        </details>
       </section>
       <section data-step="1" aria-labelledby="catalogs-title" hidden>
         <h2 id="catalogs-title" tabindex="-1">Choose your catalogs</h2>
@@ -89,11 +85,11 @@
           </ol>
         </details>
         <ol class="steps">
-          <li>Click <strong>Deploy to Cloudflare</strong>, sign in, and connect GitHub. Choose a Worker name and deploy.</li>
-          <li>Open your Worker in <strong>Workers &amp; Pages → Settings → Variables and Secrets</strong>. Add your configured AIOStreams manifest as an <code>AIOSTREAMS_MANIFEST_URL</code> secret, or add one or more direct addon manifests as secrets using <code>NUVIO_MANIFEST_URL</code>, <code>HIGHFLY_MANIFEST_URL</code>, or <code>CNC_MANIFEST_URL</code>. Add only the sources you use.</li>
-          <li id="custom-deploy" hidden>Add a text variable named <code>SPORTHUB_CATALOGS</code> with the catalog value below.</li>
-          <li id="language-deploy" hidden>Add a text variable named <code>SPORTHUB_STREAM_LANGUAGES</code> with the language value below.</li>
-          <li>Save and deploy your settings, then copy your Worker’s HTTPS address.</li>
+          <li>Click <strong>Deploy to Cloudflare</strong>, sign in, and connect GitHub. Choose a Worker name.</li>
+          <li>Paste your configured AIOStreams manifest URL into <code>AIOSTREAMS_MANIFEST_URL</code> and click <strong>Deploy</strong>.</li>
+          <li id="custom-deploy" hidden>After deployment, add the <code>SPORTHUB_CATALOGS</code> value below as a text variable under <strong>Settings → Variables and Secrets</strong> for your Worker and deploy the change.</li>
+          <li id="language-deploy" hidden>After deployment, add the <code>SPORTHUB_STREAM_LANGUAGES</code> value below as a text variable under <strong>Settings → Variables and Secrets</strong> for your Worker and deploy the change.</li>
+          <li>Copy your Worker’s HTTPS address.</li>
         </ol>
         <div id="catalog-value-wrap" class="copy-box" hidden>
           <label for="catalog-value">SPORTHUB_CATALOGS</label>
@@ -129,7 +125,7 @@
         <button type="button" id="next" class="primary">Continue</button>
       </div>
     </div>
-    <footer>Enter private source URLs directly in AIOStreams or Cloudflare.</footer>
+    <footer>Enter addon manifest URLs in AIOStreams and your AIOStreams manifest URL in Cloudflare.</footer>
   </main>
 </body>
 </html>
