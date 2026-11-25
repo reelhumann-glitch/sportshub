@@ -89,12 +89,11 @@
           </ol>
         </details>
         <ol class="steps">
-          <li>Click <strong>Deploy to Cloudflare</strong>, sign in, and connect GitHub. Cloudflare copies the SportsHub repository and prepares the Worker and its setup fields.</li>
-          <li>In the secret fields, paste your configured AIOStreams manifest under <code>AIOSTREAMS_MANIFEST_URL</code>. For direct addons, use the matching source fields.</li>
-          <li id="custom-deploy" hidden>Paste the value below into <code>SPORTHUB_CATALOGS</code>. If the field is missing, add it in your Worker's <strong>Settings → Variables and Secrets</strong>.</li>
-          <li id="language-deploy" hidden>Paste the language value below into <code>SPORTHUB_STREAM_LANGUAGES</code>. If the field is missing, add it in the same Worker settings.</li>
-          <li>Leave any other blank fields on the Cloudflare page blank.</li>
-          <li>Deploy, then copy the HTTPS address of your new Worker.</li>
+          <li>Click <strong>Deploy to Cloudflare</strong>, sign in, and connect GitHub. Choose a Worker name and deploy.</li>
+          <li>Open your Worker in <strong>Workers &amp; Pages → Settings → Variables and Secrets</strong>. Add your configured AIOStreams manifest as an <code>AIOSTREAMS_MANIFEST_URL</code> secret, or add one or more direct addon manifests as secrets using <code>NUVIO_MANIFEST_URL</code>, <code>HIGHFLY_MANIFEST_URL</code>, or <code>CNC_MANIFEST_URL</code>. Add only the sources you use.</li>
+          <li id="custom-deploy" hidden>Add a text variable named <code>SPORTHUB_CATALOGS</code> with the catalog value below.</li>
+          <li id="language-deploy" hidden>Add a text variable named <code>SPORTHUB_STREAM_LANGUAGES</code> with the language value below.</li>
+          <li>Save and deploy your settings, then copy your Worker’s HTTPS address.</li>
         </ol>
         <div id="catalog-value-wrap" class="copy-box" hidden>
           <label for="catalog-value">SPORTHUB_CATALOGS</label>

@@ -13,16 +13,11 @@ The wizard guides you through sources, optional catalog selection, Cloudflare de
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https%3A%2F%2Fgithub.com%2Freelhumann-glitch%2Fsportshub)
 
-Use the Deploy to Cloudflare button to copy this project into your own GitHub account and deploy it to your own Cloudflare Worker. Enter your own configured AIOStreams manifest URL or one or more supported direct addon URLs in the **Secrets** section. Leave unused fields blank. When deployment finishes, open the Worker’s HTTPS URL, append `/manifest.json`, and install that URL in Nuvio.
-
-If you need to add or update a source after deployment, open your Worker in **Workers & Pages → Settings → Variables and Secrets**. Add the value as a **Secret** using the names below.
-
-1. Click **Deploy to Cloudflare** and connect your GitHub account if prompted.
-2. Choose a Worker name and fill in `AIOSTREAMS_MANIFEST_URL` or the matching direct source secret fields. Leave unused fields blank. You can also add secrets in the Worker settings after deploying.
-3. Deploy. Copy the Worker’s HTTPS address, append `/manifest.json`, and open it in your browser to check that it returns the SportsHub manifest.
-4. In Nuvio, open **Settings → Addons → Add Addon**, paste the SportsHub manifest URL, and install it. Open **Live Now** or **Upcoming Today** to check the setup.
-5. Optionally paste the wizard’s `SPORTHUB_CATALOGS` value into Cloudflare to choose sport and league rows. Leave it blank for the standard catalogs.
-6. Optionally paste the wizard’s `SPORTHUB_STREAM_LANGUAGES` value into Cloudflare. Leave it blank for English preferred, which includes unlabeled feeds.
+1. Click **Deploy to Cloudflare**, connect your GitHub account, choose a Worker name, and deploy.
+2. Open your Worker in **Workers & Pages → Settings → Variables and Secrets**. Add your configured AIOStreams manifest as an `AIOSTREAMS_MANIFEST_URL` secret, or add one or more direct addon manifests as secrets using the names below. Add only the sources you use.
+3. For custom catalogs or language preferences, add the wizard’s `SPORTHUB_CATALOGS` or `SPORTHUB_STREAM_LANGUAGES` values as text variables in the same settings. Save and deploy your changes.
+4. Copy your Worker’s HTTPS address, append `/manifest.json`, and open it in your browser to check that it returns the SportsHub manifest.
+5. In Nuvio, open **Settings → Addons → Add Addon**, paste the SportsHub manifest URL, and install it. Open **Live Now** or **Upcoming Today** to check the setup.
 
 ### Optional AIOStreams template
 
@@ -82,6 +77,6 @@ SportsHub caches fixture snapshots for 10 minutes at each Cloudflare edge locati
 - `/diagnostics/providers.json` reports source catalog status without returning manifest URLs.
 - `npm test` runs the local tests.
 
-For local development, copy `.dev.vars.example` to `.dev.vars`, add your own source URLs, and run `npm run dev`. The included Atkinson Hyperlegible Next font license is in `assets/OFL.txt`.
+For local development, copy `dev.vars.example` to `.dev.vars`, add your own source URLs, and run `npm run dev`. The included Atkinson Hyperlegible Next font license is in `assets/OFL.txt`.
 
 </details>
