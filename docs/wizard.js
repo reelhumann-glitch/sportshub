@@ -8,7 +8,6 @@ const progress = [...document.querySelectorAll('#progress li')];
 const choices = $('#catalog-options');
 const languageOptions = $('#language-options');
 const notice = $('#notice');
-const keyButtons = [...document.querySelectorAll('[data-secret]')];
 let step = 0;
 
 function addCheckbox(container, value, name, checked = false) {
@@ -44,10 +43,6 @@ function refresh() {
   const codes = language === 'selected' ? selected(languageOptions) : [language];
   if (allowUnknown && $('#unknown-language').checked) codes.push('unknown');
   $('#language-value').value = codes.join(',');
-  for (const button of keyButtons) {
-    button.hidden = !document.getElementById(button.dataset.secret).value.trim();
-  }
-  $('#deploy-keys').hidden = keyButtons.every(button => button.hidden);
   $('#back').hidden = step === 0;
   $('#next').hidden = step === sections.length - 1;
   sections.forEach((section, index) => { section.hidden = index !== step; });
@@ -110,26 +105,4 @@ $('[data-copy=template]').addEventListener('click', () => copy(templateUrl, 'Tem
 $('[data-copy=catalogs]').addEventListener('click', () => copy($('#catalog-value').value, 'Catalog value copied.'));
 $('[data-copy=language]').addEventListener('click', () => copy($('#language-value').value, 'Language setting copied.'));
 $('[data-copy=manifest]').addEventListener('click', () => copy(manifestLink(), 'Install link copied.'));
-for (const button of keyButtons) {
-  button.addEventListener('click', async () => {
-    const input = document.getElementById(button.dataset.secret);
-    const key = input.value.trim();
-    if (!key) {
-      notice.textContent = 'Paste your metadata key first.';
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(key);
-      notice.textContent = 'Key copied. Paste it into the matching Cloudflare secret.';
-    } catch {
-      notice.textContent = 'Clipboard access failed. Go back to API Keys and copy the key manually.';
-    }
-  });
-}
-window.addEventListener('pagehide', () => {
-  for (const button of keyButtons) {
-    document.getElementById(button.dataset.secret).value = '';
-  }
-  refresh();
-});
 refresh();

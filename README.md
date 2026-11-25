@@ -74,7 +74,7 @@ Install dependencies with `npm ci`, sign into your own account with `npx wrangle
 
 ## Sports metadata
 
-The [setup wizard](https://reelhumann-glitch.github.io/sportshub/) includes optional fields for `API_SPORTS_KEY` and `THESPORTSDB_API_KEY`. API-Sports adds supported soccer, basketball, hockey, and rugby fixtures where your account has coverage. The [official PWHL schedule](https://www.thepwhl.com/en/schedule) works without a key and feeds Upcoming Today, Hockey, and the optional PWHL catalog.
+SportsHub uses the built-in public TheSportsDB key for fixture metadata. The [official PWHL schedule](https://www.thepwhl.com/en/schedule) works without a key and feeds Upcoming Today, Hockey, and the optional PWHL catalog.
 
 SportsHub caches fixture snapshots for 10 minutes at each Cloudflare edge location and can reuse up to six hours of recent fixtures when an upstream source fails. API-Sports data refreshes at most hourly per catalog mode and edge location when the cache is available. The artwork renderer can use team logos supplied by addons when a metadata logo is missing or fails to load.
 

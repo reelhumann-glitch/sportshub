@@ -17,12 +17,6 @@
       "CNC_MANIFEST_URL": {
         "description": "Optional direct CNCVerse manifest URL."
       },
-      "API_SPORTS_KEY": {
-        "description": "Optional API-Sports dashboard key for supported soccer, basketball, hockey, and rugby schedules."
-      },
-      "THESPORTSDB_API_KEY": {
-        "description": "Optional TheSportsDB key for fixture metadata."
-      },
       "SPORTHUB_CATALOGS": {
         "description": "Optional. Leave blank for standard catalogs, or paste the catalog list from the SportsHub setup wizard."
       },

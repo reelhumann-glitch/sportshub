@@ -34,6 +34,7 @@ button, .cta { font: inherit; font-weight: 700; border-radius: .55rem; padding: 
 .primary { color: #111e20; background: #a9ecca; border: 1px solid #a9ecca; }
 .secondary { color: inherit; background: #232f45; border: 1px solid #43516b; }
 .cta { display: inline-block; }
+.link-button { color: #a9ecca; background: none; border: 0; padding: 0; font-weight: inherit; text-decoration: underline; text-underline-offset: .2em; }
 .wizard-nav { margin-top: 1.25rem; }
 #next { margin-left: auto; }
 #notice:empty { display: none; }
