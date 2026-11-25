@@ -110,7 +110,11 @@
       </section>
       <section data-step="3" aria-labelledby="install-title" hidden>
         <h2 id="install-title" tabindex="-1">Install in Nuvio</h2>
-        <p>Add <code>/manifest.json</code> to the end of your Worker's HTTPS address.</p>
+        <ol class="steps">
+          <li>In the Cloudflare dashboard, go to <strong>Workers &amp; Pages</strong> and select the SportsHub Worker you just deployed.</li>
+          <li>Open <strong>Settings → Domains &amp; Routes</strong> (or the <strong>Domains</strong> tab) and copy your Worker’s <code>workers.dev</code> address, including <code>https://</code>.</li>
+          <li>Paste it into <strong>Your Worker address</strong> below. The wizard adds <code>/manifest.json</code> for you. Click <strong>Copy install link</strong>.</li>
+        </ol>
         <div class="copy-box">
           <label for="worker-url">Your Worker address</label>
           <input id="worker-url" type="url" placeholder="https://sportshub-addon.example.workers.dev" autocomplete="off">
