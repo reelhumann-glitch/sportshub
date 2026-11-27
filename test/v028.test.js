@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import worker,{eventFrom,manifest,makeId,parseId,isUsableStream,appendPath} from '../src/index.js';
+import worker,{eventFrom,manifest,makeId,parseId,isUsableStream,appendPath,metaOf} from '../src/index.js';
 import { rankStreams } from '../src/stream-quality.js';
 
 test('league catalogs are opt-in and keep NBA, WNBA, and the sport row distinct', async t => {
@@ -274,3 +274,144 @@ test('American football and basketball only major North American competitions',(
  for(const [cat,league] of [['american football','CFL'],['american football','UFL'],['american football','European League of Football'],['basketball','EuroLeague'],['basketball','FIBA World Cup'],['basketball','NBL Australia'],['basketball','NBA G League'],['basketball','Unknown League']]) assert.equal(eventFrom(live('Team A vs Team B',cat,`League: ${league}`),'NUVIO'),null,league);
 });
 test('sport catalogs include broad hockey and baseball',()=>{assert.equal(eventFrom(live('Toronto vs Montreal','hockey','League: PWHL'),'NUVIO').sport,'hockey');assert.equal(eventFrom(live('Yankees vs Mets','baseball','League: MLB'),'NUVIO').sport,'baseball')});
+
+test('CNCVerse Live Events SD supplies streams for corroborated live rugby games', async t => {
+  t.mock.method(globalThis, 'fetch', async input => {
+    const url = new URL(input);
+    if (url.hostname !== 'aio.test') return Response.json({ events: [] });
+    if (url.pathname.endsWith('/manifest.json')) return Response.json({ catalogs: [
+      { type: 'tv', id: 'hash.nuvio_sports_live' },
+      { type: 'tv', id: 'hash.cnc_LIVEEVENTSSD_tv' }
+    ] });
+    if (url.pathname.endsWith('/hash.nuvio_sports_live.json')) return Response.json({ metas: [
+      { ...live('US Dax vs Union Sportive Oyonnax', 'rugby'), id: 'nuvio_sport_1' },
+      { ...live('SU US Dax vs Union Sportive Oyonnax', 'volleyball'), id: 'nuvio_sport_2' }
+    ] });
+    if (url.pathname.endsWith('/hash.cnc_LIVEEVENTSSD_tv.json')) return Response.json({ metas: [
+      { name: 'US Dax vs US Oyonnax', id: 'cnc:sd-match' },
+      { name: 'US Dax vs US Oyonnax', id: 'cnc:ended', poster: 'https://example.test/?isEnded=true' },
+      { name: 'Unlisted vs Fixture', id: 'cnc:unlisted' }
+    ] });
+    const streams = url.pathname.endsWith('/stream/tv/cnc%3Asd-match.json')
+      ? [{ name: 'English', url: 'https://video.test/rugby.m3u8' }] : [];
+    return Response.json({ streams });
+  });
+  const env = { AIOSTREAMS_MANIFEST_URL: 'https://aio.test/private/manifest.json' };
+  const { metas } = await (await worker.fetch(new Request('https://x/catalog/tv/sport_rugby.json'), env)).json();
+  assert.equal(metas.length, 1);
+  assert.deepEqual(parseId(metas[0].id).sources.map(source => source.id), ['nuvio_sport_1', 'cnc:sd-match']);
+  const { streams } = await (await worker.fetch(new Request(`https://x/stream/tv/${metas[0].id}.json`), env)).json();
+  assert.equal(streams.length, 1);
+  assert.match(streams[0].description, /Addon: CNCVerse/);
+});
+
+test('college scoreboards recover unlabeled HighFly games and PenguPlay sports supplement Live Now', async t => {
+  t.mock.method(Date, 'now', () => Date.parse('2026-11-27T20:00:00Z'));
+  t.mock.method(globalThis, 'fetch', async input => {
+    const url = new URL(input);
+    if (url.pathname.endsWith('/football/college-football/scoreboard') ||
+        url.pathname.endsWith('/basketball/mens-college-basketball/scoreboard')) {
+      const football = url.pathname.includes('/football/');
+      assert.equal(url.searchParams.get('groups'), football ? '80' : '50');
+      const teams = football ? ['Akron Zips', 'Buffalo Bulls'] : ['Memphis Tigers', 'Wake Forest Demon Deacons'];
+      return Response.json({ events: [{
+        id: football ? 'cfb' : 'cbb', date: '2026-11-27T19:00:00Z',
+        status: { type: { state: 'in' } },
+        competitions: [{ competitors: teams.map((displayName, i) => ({
+          homeAway: i ? 'away' : 'home', team: { displayName }
+        })) }]
+      }] });
+    }
+    if (url.hostname !== 'aio.test') return Response.json({ events: [] });
+    if (url.pathname.endsWith('/manifest.json')) return Response.json({ catalogs: [
+      { type: 'sport', id: 'hash.sports_live' },
+      { type: 'tv', id: 'hash.pp-live-now' },
+      { type: 'tv', id: 'hash.pp-live-rugby' }
+    ] });
+    if (url.pathname.endsWith('/hash.sports_live.json')) return Response.json({ metas: [
+      { id: 'streamed:akron', name: 'Akron vs Buffalo', category: 'american-football', releaseInfo: 'LIVE' },
+      { id: 'streamed:memphis', name: 'Memphis vs Wake Forest', category: 'basketball', releaseInfo: 'LIVE' },
+      { id: 'streamed:unrelated', name: 'Unlisted vs Teams', category: 'basketball', releaseInfo: 'LIVE' }
+    ] });
+    if (url.pathname.endsWith('/hash.pp-live-now.json')) return Response.json({ metas: [] });
+    if (url.pathname.endsWith('/hash.pp-live-rugby.json')) return Response.json({ metas: [
+      { id: 'pp-live:rugby', name: '🔴 LIVE: Ireland vs Australia' },
+      { id: 'pp-live:upcoming', name: 'Upcoming: France vs Wales' },
+      { id: 'pp-live:channel', name: '🔴 LIVE: Rugby Network' }
+    ] });
+    return Response.json({ streams: [{ name: 'English', url: 'https://video.test/game.m3u8' }] });
+  });
+  const env = { AIOSTREAMS_MANIFEST_URL: 'https://aio.test/private/manifest.json' };
+  const get = async path => (await worker.fetch(new Request('https://x' + path), env)).json();
+  const { metas } = await get('/catalog/tv/live_now.json');
+  const games = metas.map(meta => ({ meta, event: parseId(meta.id) }));
+  assert.deepEqual(games.map(({ event }) => [event.sport, event.competition]), [
+    ['football', 'NCAA Football'], ['basketball', 'NCAA Basketball'], ['rugby', '']
+  ]);
+  for (const { meta, event } of games) {
+    const { streams } = await get('/stream/tv/' + meta.id + '.json');
+    const addon = event.sport === 'rugby' ? 'PenguPlay' : 'HighFly';
+    assert.equal(streams.length, 1);
+    assert.ok(streams[0].description.includes('Addon: ' + addon));
+  }
+  const rugby = await get('/catalog/tv/sport_rugby.json');
+  assert.equal(rugby.metas[0].name, 'Ireland vs Australia');
+  const withoutCollege = await worker.fetch(new Request('https://x/catalog/tv/live_now.json'), {
+    ...env, SPORTHUB_HIDE_COLLEGE_GAMES: 'true'
+  });
+  assert.deepEqual((await withoutCollege.json()).metas.map(meta => meta.name), ['Ireland vs Australia']);
+});
+
+test('landscape cards use event artwork or promotion fallback for combat and racing', async t => {
+  const origin = 'https://sportshub.test';
+  const fight = eventFrom({ ...live('UFC 315: Muhammad vs Della Maddalena', 'MMA'),
+    id: 'nuvio_sport_ufc', landscapePoster: 'https://provider.test/ufc315.jpg' }, 'NUVIO');
+  const fightCard = metaOf(fight, origin);
+  assert.equal(fightCard.name, 'UFC 315: Muhammad vs Della Maddalena');
+  assert.equal(fightCard.posterShape, 'landscape');
+  assert.equal(fightCard.landscapePoster, 'https://provider.test/ufc315.jpg');
+  const race = { name: 'Formula 1 & Grand Prix', sport: 'motorsport', teamA: 'One', teamB: 'Two', sourceIds: [] };
+  const raceCard = metaOf(race, origin);
+  assert.match(raceCard.poster, /\/artwork\/wide\//);
+  t.mock.method(globalThis, 'fetch', async url => {
+    assert.equal(new URL(url).hostname, 'upload.wikimedia.org');
+    return new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47]), { headers: { 'content-type': 'image/png' } });
+  });
+  const art = await (await worker.fetch(new Request(raceCard.poster), {})).text();
+  assert.match(art, /width="960" height="540"/);
+  assert.match(art, /data:image\/png;base64,/);
+  assert.match(art, /Formula 1 &amp; Grand Prix/);
+  assert.doesNotMatch(art, />VS</);
+});
+
+test('stream resolution drops clearly broken HLS while keeping uncertain and header-protected feeds', async t => {
+  const item = makeId({ sourceIds: [{ provider: 'NUVIO', id: 'fixture' }] });
+  const referrer = 'https://nuviosports.xyz/';
+  const urls = ['valid', 'dead', 'html', 'protected', 'unsupported', 'timeout'].map(name =>
+    'https://stream.nuviosports.xyz/test-health-' + name + '.m3u8');
+  const requested = new Map();
+  t.mock.method(globalThis, 'fetch', async (input, options) => {
+    const { hostname, pathname } = new URL(input);
+    if (hostname === 'provider.test') return Response.json({ streams: urls.map((url, i) => ({
+      name: 'English 1080p 6 Mbps', url,
+      ...(i === 0 ? { behaviorHints: { proxyHeaders: { request: { Referer: referrer } } } } : {}),
+      ...(i === 4 ? { behaviorHints: { proxyHeaders: { request: { Authorization: 'fixture' } } } } : {})
+    })) });
+    requested.set(pathname, options.headers);
+    if (pathname.includes('-dead')) return new Response(null, { status: 410 });
+    if (pathname.includes('-protected')) return new Response(null, { status: 403 });
+    if (pathname.includes('-timeout')) throw new DOMException('probe timed out', 'TimeoutError');
+    if (pathname.includes('-html')) return new Response('<html>feed removed</html>');
+    return new Response('#EXTM3U\n#EXTINF:5,\nsegment.ts');
+  });
+  const request = new Request('https://sportshub.test/stream/tv/' + item + '.json');
+  const env = { NUVIO_MANIFEST_URL: 'https://provider.test/manifest.json' };
+  const result = await (await worker.fetch(request, env)).json();
+  assert.deepEqual(result.streams.map(stream => stream.url), [urls[0], urls[3], urls[4], urls[5]]);
+  assert.equal(requested.get(new URL(urls[0]).pathname).Referer, referrer);
+  assert.equal(requested.has(new URL(urls[4]).pathname), false);
+  requested.clear();
+  await worker.fetch(request, env);
+  assert.equal(requested.has(new URL(urls[1]).pathname), false);
+  assert.equal(requested.has(new URL(urls[5]).pathname), true);
+});

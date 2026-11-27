@@ -1,5 +1,5 @@
-import { loadFixtures, matchupPoster, publicBadge } from './fixtures.js';
-import { rankStreams } from './stream-quality.js';
+import { loadFixtures, eventPoster, matchupPoster, promotionArtwork, publicBadge } from './fixtures.js';
+import { filterBrokenPlaylists, rankStreams } from './stream-quality.js';
 import { classifyLanguage, streamLanguageAllowed } from './stream-language.js';
 import { catalogs, enabledCatalogs, sports } from '../docs/catalogs.js';
 
@@ -11,6 +11,16 @@ const PROVIDERS = [
   { key: 'HIGHFLY', env: 'HIGHFLY_MANIFEST_URL', catalog: 'sports_live', type: 'sport' },
   { key: 'CNC', env: 'CNC_MANIFEST_URL', catalog: 'cnc_SportzXLiveEvents_tv', type: 'tv' }
 ];
+const CNC_SD_CATALOG = /(?:^|\.)cnc_LIVEEVENTSSD_tv$/i;
+const PENGUPLAY_SPORTS = {
+  football: 'soccer', american_football: 'football', basketball: 'basketball',
+  hockey: 'hockey', baseball: 'baseball', mma: 'mma', tennis: 'tennis',
+  motorsport: 'motorsport', rugby: 'rugby', other: 'other'
+};
+function penguPlaySport(id) {
+  const slug = /(?:^|\.)pp-live-([a-z_]+)$/.exec(id)?.[1];
+  return slug && Object.hasOwn(PENGUPLAY_SPORTS, slug) ? PENGUPLAY_SPORTS[slug] : undefined;
+}
 const AIO_PROVIDERS = [...PROVIDERS, { key: 'PP', catalog: 'pp-live-now', type: 'tv' }];
 const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8', 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, OPTIONS', 'access-control-allow-headers': 'Content-Type' };
 const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/&/g, ' and ').replace(/\b(fc|cf|sc|ac|bc|wfc|afc|club)\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
@@ -34,7 +44,7 @@ function sportFrom(item, provider, cnc) {
   if (/\bwnba\b|\bnba\b|basketball|\bncaab\b|college hoops|march madness|euroleague|\bfiba\b/.test(all)) return 'basketball';
   if (/\bpwhl\b|\bnhl\b|ice hockey|hockey|\bkhl\b|\bahl\b/.test(all)) return 'hockey';
   if (/\bmlb\b|baseball|world baseball classic|\bnpb\b|\bkbo\b/.test(all)) return 'baseball';
-  if (/\bufc\b|\bmma\b|boxing|fight night|\bone championship\b|\bpfl\b/.test(all)) return 'mma';
+  if (/\bufc\b|\bmma\b|boxing|wrestling|\bwwe\b|\baew\b|fight night|\bone championship\b|\bpfl\b/.test(all)) return 'mma';
   if (/tennis|\batp\b|\bwta\b|wimbledon/.test(all)) return 'tennis';
   if (/motorsport|formula ?1|\bf1\b|moto\s?gp|nascar/.test(all)) return 'motorsport';
   if (/soccer|football|premier league|champions league|bundesliga|la liga|serie a|ligue 1/.test(all)) return 'soccer';
@@ -82,7 +92,7 @@ function cleanEventDescription(sport, competition, teamA, teamB) {
   if (teamA && teamB) lines.push(`Match: ${teamA} vs ${teamB}`);
   return lines.join('\n');
 }
-function eventFrom(item, provider, filter = true) {
+function eventFrom(item, provider, filter = true, sportHint) {
   if (!item || isPromo(item)) return null;
   const id = String(item.id || '');
   let cnc = null;
@@ -104,6 +114,7 @@ function eventFrom(item, provider, filter = true) {
     channel = !id.startsWith('cnc:');
   } else if (provider === 'PP') {
     live = id.startsWith('pp-live:') && /^\s*(?:🔴\s*)?live\s*:/i.test(item.name);
+    channel = Boolean(sportHint) && /^(?:[A-Z0-9+.-]+ )+(?:network|channel)(?:\s+(?:HD|FHD|UHD|4K))?$/i.test(cleanName(item.name));
   }
   if (!live || channel) return null;
   const title = cleanName(item.name || item.title || cnc?.title || cnc?.eventInfo?.eventName);
@@ -114,13 +125,15 @@ function eventFrom(item, provider, filter = true) {
   const teamA = teams[0] || item.team1?.name || parsed[0] || '';
   const teamB = teams[1] || item.team2?.name || parsed[1] || '';
   if (!teamA && !teamB) return null;
-  const sport = sportFrom(item, provider, cnc);
+  const detectedSport = sportFrom(item, provider, cnc);
+  const sport = detectedSport === 'other' && sportHint ? sportHint : detectedSport;
   const competition = competitionFrom(item, cnc);
   if (filter && !eligibleEvent(sport, item, cnc, competition)) return null;
   const eventKey = [sport, norm(teamA), norm(teamB)].sort().join('|');
   return {
-    id, provider, type: 'tv', name: displayEventName(title, teamA, teamB),
+    id, provider, type: 'tv', name: ['mma', 'motorsport'].includes(sport) ? title || displayEventName('', teamA, teamB) : displayEventName(title, teamA, teamB),
     poster: item.poster || item.background, background: item.background || item.poster,
+    landscapePoster: item.landscapePoster || (item.posterShape === 'landscape' ? item.poster : undefined),
     description: cleanEventDescription(sport, competition, teamA, teamB),
     competition, releaseInfo: 'LIVE', sport, teamA, teamB, eventKey,
     badgeA: publicBadge(poster?.get('teamAImg') || item.team1?.logo),
@@ -162,6 +175,7 @@ function mergeEvents(events) {
       for (const src of e.sourceIds) if (!match.sourceIds.some(x => x.provider === src.provider && x.id === src.id)) match.sourceIds.push(src);
       if (!match.poster && e.poster) match.poster = e.poster;
       if (!match.background && e.background) match.background = e.background;
+      if (!match.landscapePoster && e.landscapePoster) match.landscapePoster = e.landscapePoster;
       mergeBadges(match, e);
       if (!match.competition && e.competition) match.competition = e.competition;
       if (e.description && e.description.length > match.description.length) match.description = e.description;
@@ -172,7 +186,7 @@ function mergeEvents(events) {
 }
 function b64url(text) { return btoa(unescape(encodeURIComponent(text))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, ''); }
 function unb64url(text) { const s = text.replace(/-/g, '+').replace(/_/g, '/'); return decodeURIComponent(escape(atob(s + '='.repeat((4 - s.length % 4) % 4)))); }
-function makeId(event) { return `sh_${b64url(JSON.stringify({ v: 1, sources: event.sourceIds, name: event.name, poster: event.poster, background: event.background, description: event.description, competition: event.competition, sport: event.sport, teamA: event.teamA, teamB: event.teamB, badgeA: event.badgeA, badgeB: event.badgeB, fallbackBadgeA: event.fallbackBadgeA, fallbackBadgeB: event.fallbackBadgeB, start: event.start, timeLabel: event.timeLabel, upcoming: event.upcoming }))}`; }
+function makeId(event) { return `sh_${b64url(JSON.stringify({ v: 1, sources: event.sourceIds, name: event.name, poster: event.poster, background: event.background, landscapePoster: event.landscapePoster, description: event.description, competition: event.competition, sport: event.sport, teamA: event.teamA, teamB: event.teamB, badgeA: event.badgeA, badgeB: event.badgeB, fallbackBadgeA: event.fallbackBadgeA, fallbackBadgeB: event.fallbackBadgeB, start: event.start, timeLabel: event.timeLabel, upcoming: event.upcoming }))}`; }
 function emptySport(sport) {
   const name = SPORTS.find(([id]) => id === sport)?.[1] || catalogs.find(catalog => catalog.id === sport)?.league;
   return name ? {
@@ -197,29 +211,34 @@ async function providerCatalog(p, env, filter = true, aioCatalog) {
   const base = aioCatalog ? env.AIOSTREAMS_MANIFEST_URL : env[p.env];
   const data = await fetchJson(appendPath(base, path));
   if (!Array.isArray(data?.metas)) throw new Error('Invalid catalog response');
-  const events = data.metas.map(x => eventFrom(x, p.key, filter)).filter(Boolean);
+  const sportHint = p.key === 'PP' ? penguPlaySport(aioCatalog || '') : undefined;
+  const events = data.metas.map(x => eventFrom(x, p.key, filter, sportHint)).filter(Boolean);
+  const fallbackSources = p.key === 'CNC' && CNC_SD_CATALOG.test(aioCatalog || '')
+    ? data.metas.flatMap(cncSdSource) : [];
   if (aioCatalog) for (const event of events) event.sourceIds[0].viaAio = true;
-  return { events, catalogEntries: data.metas.length };
+  return { events, fallbackSources, catalogEntries: data.metas.length };
 }
-function aioCatalogs(manifest, provider) {
+function aioCatalogs(manifest, provider, sport) {
   return arr(manifest?.catalogs).filter(entry => entry.type === provider.type &&
     !/highlights?|replays?/i.test(`${entry.id} ${entry.name || ''}`) &&
     (entry.id === provider.catalog || String(entry.id).endsWith(`.${provider.catalog}`) ||
-      (provider.key === 'CNC' && /(?:^|\.)cnc_[a-z]+LiveEvents_tv$/i.test(entry.id))));
+      (provider.key === 'PP' && penguPlaySport(entry.id) && (!sport || penguPlaySport(entry.id) === sport)) ||
+      (provider.key === 'CNC' && (CNC_SD_CATALOG.test(entry.id) || /(?:^|\.)cnc_[a-z]+LiveEvents_tv$/i.test(entry.id)))));
 }
 async function aioManifest(env) {
   return fetchJson(env.AIOSTREAMS_MANIFEST_URL, 6000, {
     cacheEverything: true, cacheTtlByStatus: { '200-299': 90, '400-599': 0 }
   });
 }
-async function catalogForProvider(provider, env, manifest, filter = true) {
-  const catalogs = aioCatalogs(manifest, provider);
+async function catalogForProvider(provider, env, manifest, filter = true, sport) {
+  const catalogs = aioCatalogs(manifest, provider, sport);
   if (catalogs.length) {
     const results = await Promise.allSettled(catalogs.map(catalog => providerCatalog(provider, env, filter, catalog.id)));
     const available = results.filter(result => result.status === 'fulfilled');
     if (available.length) return {
       transport: 'AIOStreams',
       events: available.flatMap(result => result.value.events),
+      fallbackSources: available.flatMap(result => result.value.fallbackSources),
       catalogEntries: available.reduce((sum, result) => sum + result.value.catalogEntries, 0)
     };
     if (!env[provider.env]) throw results[0].reason;
@@ -279,10 +298,18 @@ function matchesCatalog(event, catalog) {
   };
   return aliases[catalog.league].includes(league);
 }
-function upcomingEvents({ fixtures, isUpcoming }, catalog) {
+function collegeGame(event) {
+  if (event.sport !== 'football' && event.sport !== 'basketball') return false;
+  const label = [event.competition, event.category, event.name, event.raw?.category,
+    event.raw?.league, event.raw?.competition, event.raw?.description].join(' ').toLowerCase();
+  if (/\b(?:nfl|nba|wnba)\b|national football league/.test(label)) return false;
+  return (event.sport === 'football' ? MAJOR_FOOTBALL : MAJOR_BASKETBALL).test(label);
+}
+function upcomingEvents({ fixtures, isUpcoming }, catalog, env) {
   const priority = ['pwhl', 'espn', 'sportsdb', 'apisports'];
   const candidates = fixtures.filter(isUpcoming).map(fixtureEvent)
-    .filter(event => matchesCatalog(event, catalog) && eligibleEvent(event.sport, event, null, event.competition))
+    .filter(event => matchesCatalog(event, catalog) && eligibleEvent(event.sport, event, null, event.competition)
+      && (env.SPORTHUB_HIDE_COLLEGE_GAMES !== 'true' || !collegeGame(event)))
     .sort((a, b) => priority.indexOf(a.provider) - priority.indexOf(b.provider));
   const events = [];
   for (const event of candidates) {
@@ -311,41 +338,85 @@ function findFixture(event, fixtures) {
   const exactLeague = matches.filter(fixture => norm(fixture.competition) === norm(event.competition));
   return exactLeague.length === 1 ? exactLeague[0] : undefined;
 }
-async function allEvents(env, fixtureData = []) {
+function expandCncTeamName(name) {
+  return String(name ?? '').trim().replace(/^US\s+(?=\S)/i, 'Union Sportive ');
+}
+function cncSdSource(item) {
+  if (!item?.id?.startsWith('cnc:') || isPromo(item)) return [];
+  const poster = query(item.poster);
+  if (poster.get('isEnded') === 'true' || poster.get('isLive') === 'false') return [];
+  const name = cleanName(item.name || item.title).replace(/\s+---\s+CH\s+\d+$/i, '');
+  const [teamA, teamB, extra] = name.split(/\s+(?:vs\.?|v\.?|@)\s+/i).map(expandCncTeamName);
+  return teamA && teamB && !extra
+    ? [{ teamA, teamB, source: { provider: 'CNC', id: item.id, viaAio: true } }]
+    : [];
+}
+async function allEvents(env, fixtureData = [], sport) {
   const manifest = env.AIOSTREAMS_MANIFEST_URL ? await aioManifest(env).catch(() => null) : null;
-  const configured = AIO_PROVIDERS.filter(p => env[p.env] || aioCatalogs(manifest, p).length);
+  const configured = AIO_PROVIDERS.filter(p => env[p.env] || aioCatalogs(manifest, p, sport).length);
   const [results, fixtures] = await Promise.all([
-    Promise.allSettled(configured.map(p => catalogForProvider(p, env, manifest, false))),
+    Promise.allSettled(configured.map(p => catalogForProvider(p, env, manifest, false, sport))),
     fixtureData
   ]);
   const events = results.flatMap(r => r.status === 'fulfilled' ? r.value.events : []);
-  return mergeEvents(events.flatMap(event => {
+  const live = mergeEvents(events.flatMap(event => {
     const fixture = findFixture(event, fixtures);
     if (!fixture && event.provider === 'CNC' && event.sport === 'other' && !decodeCnc(event.id)) return [];
     const updated = fixture ? { ...event, ...fixture } : event;
     if (fixture) mergeBadges(updated, event);
     const classification = fixture ? { category: fixture.category, competition: fixture.competition } : event.raw;
     const cnc = !fixture && event.provider === 'CNC' ? decodeCnc(event.id) : null;
-    return eligibleEvent(updated.sport, classification, cnc, updated.competition) ? [updated] : [];
+    return eligibleEvent(updated.sport, classification, cnc, updated.competition)
+      && (env.SPORTHUB_HIDE_COLLEGE_GAMES !== 'true' || !collegeGame(updated)) ? [updated] : [];
   }));
+  // SD entries can lack sport and live status. Use them as streams for corroborated live games.
+  for (const candidate of results.flatMap(r => r.status === 'fulfilled' ? r.value.fallbackSources || [] : [])) {
+    const exact = [];
+    const similar = [];
+    const candidateTeams = [norm(candidate.teamA), norm(candidate.teamB)].sort().join('|');
+    for (const event of live) {
+      const teamA = expandCncTeamName(event.teamA);
+      const teamB = expandCncTeamName(event.teamB);
+      if ([norm(teamA), norm(teamB)].sort().join('|') === candidateTeams) exact.push(event);
+      else if (sameFixture({ ...event, teamA, teamB }, { ...candidate, sport: event.sport })) similar.push(event);
+    }
+    const matches = exact.length ? exact : similar;
+    if (matches.length !== 1) continue;
+    const event = matches[0];
+    if (!event.sourceIds.some(source => source.provider === 'CNC' && source.id === candidate.source.id)) {
+      event.sourceIds.push(candidate.source);
+    }
+  }
+  return live;
 }
 function metaOf(e, origin, extension = 'svg') {
   const sportName = SPORTS.find(x => x[0] === e.sport)?.[1] || 'Other Sports';
   const id = makeId(e);
   const empty = isEmptySport(e);
-  const hasArtwork = origin && (empty || isPosterMatchup(e));
-  const poster = hasArtwork ? `${origin}/artwork/${id}.${extension}` : e.poster || e.background;
+  const wideArtwork = origin && `${origin}/artwork/wide/${id}.${extension}`;
+  const eventArt = !empty && !isPosterMatchup(e);
+  const providerArt = eventArt && [e.landscapePoster, e.background, e.poster].find(isEventImage);
+  const poster = providerArt || wideArtwork || e.poster || e.background;
   const description = e.description || cleanEventDescription(e.sport, e.competition, e.teamA, e.teamB);
   return {
     id, type: 'tv', name: e.name || displayEventName('', e.teamA, e.teamB),
-    poster, background: hasArtwork ? `${origin}/artwork/wide/${id}.${extension}` : e.background || poster,
+    poster, posterShape: 'landscape', landscapePoster: poster, background: poster,
     description: !e.upcoming && e.timeLabel ? `${description}\nScheduled start: ${e.timeLabel}` : description,
     releaseInfo: empty ? 'No games today' : e.upcoming ? e.timeLabel : 'LIVE NOW', genres: [sportName],
     cast: [e.teamA, e.teamB].filter(Boolean),
     behaviorHints: { defaultVideoId: id }
   };
 }
+function isEventImage(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && !url.username && !url.password;
+  } catch { return false; }
+}
 function isPosterMatchup(event) {
+  if (['mma', 'motorsport'].includes(event?.sport)) return false;
+  if (event?.sport === 'other' && /\b(?:golf|cycling|athletics|track and field|darts|snooker|skiing|skating|surfing|sailing)\b/i
+    .test([event.competition, event.name].join(' '))) return false;
   return [event?.teamA, event?.teamB].every(name => typeof name === 'string' && name.trim() && name.length <= 160);
 }
 function streamUrl(base, type, id) { return appendPath(base, `stream/${type}/${encodeURIComponent(id)}.json`); }
@@ -365,10 +436,9 @@ async function sourceStreams(src, env, timeout) {
   const data = await fetchJson(streamUrl(base, provider.type, src.id), timeout);
   return arr(data.streams).filter(stream => isUsableStream(stream, env.SPORTHUB_STREAM_LANGUAGES));
 }
-async function visibleLiveEvents(events, env) {
+async function visibleLiveEvents(events, env, maxChecks = 12) {
   const other = events.filter(event => event.sport === 'other');
   // Reserve room for fixture and catalog fetches on the Workers free plan.
-  const maxChecks = 12;
   let remaining = maxChecks;
   const checked = await Promise.all(other.map(async event => {
     const sources = event.sourceIds.slice(0, Math.min(remaining, 2));
@@ -386,11 +456,11 @@ async function fetchStreams(sourceIds, env) {
   });
   const settled = await Promise.allSettled(tasks);
   const candidates = settled.flatMap(r => r.status === 'fulfilled' ? r.value : []);
-  return rankStreams(candidates);
+  return rankStreams(await filterBrokenPlaylists(candidates));
 }
 function manifest(env = {}) {
   return {
-    id: 'community.sportshub.live', version: '0.2.9', name: 'SportsHub',
+    id: 'community.sportshub.live', version: '0.3.0', name: 'SportsHub',
     description: 'Live sports and today’s upcoming games, with configurable stream languages.',
     resources: ['catalog', 'meta', 'stream'], types: ['tv'], idPrefixes: ['sh_'],
     catalogs: enabledCatalogs(env.SPORTHUB_CATALOGS).map(({ id, name, extra }) => ({ type: 'tv', id, name, extra })),
@@ -422,7 +492,10 @@ export default {
       if (isPosterMatchup(event)) {
         return matchupPoster({ ...event, competition: String(event.competition || '') }, Boolean(artworkMatch[1]));
       }
-      return json({ error: 'Invalid matchup' }, 400);
+      if (typeof event?.name === 'string' && event.name.trim() && event.name.length <= 240) {
+        return eventPoster(event, promotionArtwork(event), Boolean(artworkMatch[1]));
+      }
+      return json({ error: 'Invalid artwork' }, 400);
     }
     const catalogMatch = url.pathname.match(/^\/catalog\/tv\/([^/]+)\.json$/);
     if (catalogMatch) {
@@ -434,10 +507,11 @@ export default {
       const checkLive = catalogId === 'live_now' || sport === 'other';
       const fixtureData = loadFixtures(env, fetchJson, { ...cacheOptions, compact: checkLive });
       const live = upcoming ? [] : await allEvents(env, fixtureData.then(({ fixtures }) => fixtures
-        .filter(fixture => fixture.start <= Date.now() + 30 * 60000).map(fixtureEvent)));
+        .filter(fixture => fixture.start <= Date.now() + 30 * 60000).map(fixtureEvent)), sport);
       const matching = live.filter(event => matchesCatalog(event, catalog));
-      const current = checkLive ? await visibleLiveEvents(matching, env) : matching;
-      const scheduled = upcoming || (sport && sport !== 'other') ? upcomingEvents(await fixtureData, catalog) : [];
+      // Live Now reads all PenguPlay sports, leaving fewer requests for stream probes.
+      const current = checkLive ? await visibleLiveEvents(matching, env, sport ? 12 : 4) : matching;
+      const scheduled = upcoming || (sport && sport !== 'other') ? upcomingEvents(await fixtureData, catalog, env) : [];
       const events = [...current, ...scheduled.filter(event => !current.some(match =>
         sameFixture(match, event) && (!match.start || Math.abs(match.start - event.start) < 20 * 60000)))];
       const empty = !events.length && sport && emptySport(catalog.league ? catalog.id : sport);
@@ -456,7 +530,7 @@ export default {
       const payload = parseId(decodeURIComponent(streamMatch[1])); if (!payload) return json({ streams: [] }, 400);
       let sources = arr(payload.sources);
       if (payload.upcoming && payload.start <= Date.now()) {
-        const matches = (await allEvents(env, [payload])).filter(event => sameFixture(event, payload));
+        const matches = (await allEvents(env, [payload], payload.sport)).filter(event => sameFixture(event, payload));
         if (matches.length === 1) sources = matches[0].sourceIds;
       }
       const streams = await fetchStreams(sources, env);

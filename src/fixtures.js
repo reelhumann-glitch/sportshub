@@ -7,6 +7,8 @@ const FIXTURE_SPORTS = [
 const LIVE_CHECK_SPORTS = ['', 'Soccer', 'Rugby', 'Volleyball', 'Darts'];
 const SCOREBOARDS = [
   ['football/nfl', 'American Football', 'NFL'], ['basketball/nba', 'Basketball', 'NBA'],
+  ['football/college-football', 'American Football', 'NCAA Football', '80'],
+  ['basketball/mens-college-basketball', 'Basketball', 'NCAA Basketball', '50'],
   ['basketball/wnba', 'Basketball', 'WNBA'], ['hockey/nhl', 'Ice Hockey', 'NHL'],
   ['baseball/mlb', 'Baseball', 'MLB'], ['soccer/eng.1', 'Soccer', 'Premier League'],
   ['soccer/esp.1', 'Soccer', 'La Liga'], ['soccer/ita.1', 'Soccer', 'Serie A'],
@@ -37,8 +39,13 @@ function fixtureFrom(row) {
 
 async function scoreboardFixtures(date, fetchJson) {
   const day = date.replaceAll('-', '');
-  const results = await Promise.allSettled(SCOREBOARDS.map(async ([path, category, competition]) => {
-    const data = await fetchJson(`https://site.api.espn.com/apis/site/v2/sports/${path}/scoreboard?dates=${day}`, 8000, cacheOptions);
+  const results = await Promise.allSettled(SCOREBOARDS.map(async ([path, category, competition, group]) => {
+    const params = new URLSearchParams({ dates: day });
+    if (group) {
+      params.set('groups', group);
+      params.set('limit', '500');
+    }
+    const data = await fetchJson(`https://site.api.espn.com/apis/site/v2/sports/${path}/scoreboard?${params}`, 8000, cacheOptions);
     return (data.events || []).flatMap(event => {
       const competitors = event.competitions?.[0]?.competitors;
       const home = competitors?.find(entry => entry.homeAway === 'home')?.team;
@@ -130,7 +137,7 @@ export async function loadFixtures(env, fetchJson, {
     const settings = JSON.stringify([env.THESPORTSDB_API_KEY || '', env.API_SPORTS_KEY || '']);
     const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(settings)));
     const hash = [...digest].map(byte => byte.toString(16).padStart(2, '0')).join('');
-    cacheKey = new Request(new URL(`/.sportshub-cache/fixtures/v2/${date}/${compact ? 'compact' : 'full'}/${hash}`, origin));
+    cacheKey = new Request(new URL(`/.sportshub-cache/fixtures/v3/${date}/${compact ? 'compact' : 'full'}/${hash}`, origin));
     try {
       const response = await cache.match(cacheKey);
       if (response) previous = await response.json();
@@ -170,8 +177,8 @@ export function publicBadge(value) {
   } catch { return ''; }
 }
 
-async function badgeData(value) {
-  const url = publicBadge(value);
+async function badgeData(value, promotion = false) {
+  const url = promotion && PROMOTION_ARTWORK.some(([, , image]) => image === value) ? value : publicBadge(value);
   if (!url) return '';
   try {
     const result = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(3500),
@@ -224,6 +231,42 @@ export async function matchupPoster(event, wide = false) {
     </g></svg>`;
   return new Response(svg, { headers: {
     'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': badgeA && badgeB ? 'public, max-age=3600' : 'public, max-age=60',
+    'content-security-policy': "default-src 'none'; img-src data:"
+  } });
+}
+
+const PROMOTION_ARTWORK = [
+  [/\bufc\b|ultimate fighting championship/i, 'UFC', 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/UFC_Logo.svg/500px-UFC_Logo.svg.png'],
+  [/\bwwe\b|wrestlemania|smackdown/i, 'WWE', 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/WWE_Official_Logo.svg/500px-WWE_Official_Logo.svg.png'],
+  [/\bformula\s*(?:1|one)\b|\bf1\b/i, 'Formula 1', 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Formula_One_logo.svg/500px-Formula_One_logo.svg.png']
+];
+
+export function promotionArtwork({ name, competition, sport }) {
+  if (!['mma', 'motorsport'].includes(sport)) return;
+  return PROMOTION_ARTWORK.find(([pattern]) => pattern.test([name, competition].join(' ')));
+}
+
+export async function eventPoster(event, promotion, wide = false) {
+  const width = wide ? 960 : 420;
+  const height = wide ? 540 : 630;
+  const logo = promotion && await badgeData(promotion[2], true);
+  const left = width / 2;
+  const title = event.name.trim().slice(0, 108);
+  const fontSize = Math.min(wide ? 47 : 34, Math.floor((width - 64) * 1.45 / Math.max(title.length, 1)));
+  const series = promotion?.[1] || event.competition || '';
+  const label = event.upcoming ? event.timeLabel || 'UPCOMING' : 'LIVE';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+    <rect width="${width}" height="${height}" rx="24" fill="#101a2a"/>
+    <path d="M0 ${height * .75} L${width} ${height * .55} V${height} H0Z" fill="#172942"/>
+    <g fill="#f4f7fc" font-family="Arial, sans-serif" font-weight="700" text-anchor="middle">
+      <text x="${left}" y="53" font-size="20" fill="#a8c3eb">${xml(series.slice(0, 64))}</text>
+      ${logo ? `<rect x="${left - 128}" y="105" width="256" height="158" rx="16" fill="#f4f7fc"/>
+        <image href="${logo}" x="${left - 108}" y="120" width="216" height="128"/>` : ''}
+      <text x="${left}" y="${height * .65}" font-size="${Math.max(10, fontSize)}">${xml(title)}</text>
+      <text x="${left}" y="${height - 40}" font-size="17" fill="#a8c3eb">${xml(label)}</text>
+    </g></svg>`;
+  return new Response(svg, { headers: {
+    'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': promotion && !logo ? 'public, max-age=60' : 'public, max-age=3600',
     'content-security-policy': "default-src 'none'; img-src data:"
   } });
 }

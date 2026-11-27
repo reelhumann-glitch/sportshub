@@ -1,4 +1,4 @@
-# SportsHub 0.2.9
+# SportsHub 0.3.0
 
 SportsHub is a self-hosted sports addon for Nuvio that shows live games, upcoming fixtures, and matchup artwork. It uses one AIOStreams manifest URL. To use multiple sports addons, combine them in the same AIOStreams configuration.
 
@@ -53,6 +53,12 @@ The Worker uses the default `workers.dev` route and needs no paid bindings or cu
 ## Manual setup and checks
 
 Install dependencies with `npm ci`, sign into your own account with `npx wrangler login`, run `npm run deploy`, then set your AIOStreams manifest using `npx wrangler secret put AIOSTREAMS_MANIFEST_URL`. On Windows PowerShell, use `npx.cmd` if needed.
+
+## Artwork and stream checks
+
+SportsHub advertises landscape cards. Team games use matchup artwork. Combat sports, motorsport, and other event-style listings use provider artwork when available, then a promotion logo or a generated title card. Card layout depends on your Nuvio client.
+
+SportsHub checks a limited number of HLS playlists on trusted hosts when you open a game. It removes feeds that are gone or return invalid playlist content and keeps feeds when the check is inconclusive. Logo fallbacks are from Wikimedia Commons ([UFC](https://commons.wikimedia.org/wiki/File:UFC_Logo.svg), [WWE](https://commons.wikimedia.org/wiki/File:WWE_Official_Logo.svg), and [Formula 1](https://commons.wikimedia.org/wiki/File:Formula_One_logo.svg)).
 
 ## Sports metadata
 

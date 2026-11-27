@@ -90,3 +90,63 @@ export async function rankStreams(candidates) {
       return { ...playback, name: [resolutionLabel, bitrateLabel, languageLabel || (language === 'english' ? 'English' : 'Language unverified')].join(' · '), description: details };
     });
 }
+
+const playlistHealth = new Map();
+const PLAYLIST_HEALTH_TTL = 30_000;
+const PLAYLIST_HEALTH_CACHE_SIZE = 128;
+const PLAYBACK_HEADER_NAMES = new Set(['accept', 'origin', 'referer', 'user-agent']);
+
+async function playlistIsBroken(url, headers) {
+  let reader;
+  try {
+    const response = await fetch(url, { headers, redirect: 'manual', signal: AbortSignal.timeout(1200) });
+    if (response.status === 404 || response.status === 410) {
+      await response.body?.cancel();
+      return true;
+    }
+    if (!response.ok || !response.body) {
+      await response.body?.cancel();
+      return undefined;
+    }
+    reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let prefix = '';
+    while (prefix.length < 4096) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      prefix += decoder.decode(value.subarray(0, 4096 - prefix.length), { stream: true });
+      if (prefix.trimStart().length >= 7) break;
+    }
+    return !prefix.trimStart().startsWith('#EXTM3U');
+  } catch {
+    return undefined;
+  } finally {
+    if (reader) await reader.cancel().catch(() => {});
+  }
+}
+
+export async function filterBrokenPlaylists(candidates) {
+  const checks = new Map();
+  const keys = candidates.map(({ stream }) => {
+    const url = playlistUrl(stream.url);
+    const requestHeaders = Object.entries(stream.behaviorHints?.proxyHeaders?.request || {});
+    if (!url || requestHeaders.some(([name, value]) =>
+      !PLAYBACK_HEADER_NAMES.has(name.toLowerCase()) || typeof value !== 'string' || /[\r\n]/.test(value))) return;
+    const key = JSON.stringify([url, requestHeaders]);
+    const cached = playlistHealth.get(key);
+    if (cached?.expires > Date.now()) {
+      checks.set(key, Promise.resolve(cached.broken));
+    } else if (!checks.has(key) && checks.size < MAX_PROBES) {
+      checks.set(key, playlistIsBroken(url, Object.fromEntries(requestHeaders)).then(broken => {
+        if (broken !== undefined) {
+          if (playlistHealth.size >= PLAYLIST_HEALTH_CACHE_SIZE) playlistHealth.delete(playlistHealth.keys().next().value);
+          playlistHealth.set(key, { broken, expires: Date.now() + PLAYLIST_HEALTH_TTL });
+        }
+        return broken;
+      }));
+    }
+    return key;
+  });
+  const broken = await Promise.all(keys.map(key => checks.get(key)));
+  return candidates.filter((_, index) => broken[index] !== true);
+}
