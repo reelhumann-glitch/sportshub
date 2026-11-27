@@ -4,6 +4,8 @@ SportsHub is a self-hosted sports addon for Nuvio that shows live games, upcomin
 
 **[Start Setup →](https://reelhumann-glitch.github.io/sportshub/)**
 
+**[Update SportsHub →](https://reelhumann-glitch.github.io/sportshub/update.html)**
+
 The wizard guides you through AIOStreams setup, optional catalog selection, Cloudflare deployment, and installation in Nuvio.
 
 <details>
