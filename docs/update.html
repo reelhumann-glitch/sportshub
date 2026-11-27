@@ -6,7 +6,7 @@
   <meta name="description" content="Check and update your SportsHub Worker without reinstalling in Nuvio.">
   <title>Update SportsHub</title>
   <link rel="stylesheet" href="wizard.css">
-  <script type="module" src="update.js?v=check"></script>
+  <script type="module" src="update.js?v=cloudflare"></script>
 </head>
 <body>
   <main>
@@ -23,21 +23,18 @@
       </form>
       <p id="notice" role="status" aria-live="polite"></p>
       <div id="upgrade-instructions">
-        <p>Update the same Cloudflare Worker to keep your existing Nuvio install and saved AIOStreams secret.</p>
         <div class="actions">
-          <a id="release-link" class="primary cta" href="https://github.com/reelhumann-glitch/sportshub/releases/latest">Get the latest release</a>
-          <a href="https://dash.cloudflare.com/">Open Cloudflare ↗</a>
+          <a class="primary cta" href="https://dash.cloudflare.com/?to=/:account/workers-and-pages" target="_blank" rel="noopener">Open Cloudflare ↗</a>
+          <a id="release-link" href="https://github.com/reelhumann-glitch/sportshub/archive/refs/tags/v0.3.0.zip">Download update ZIP</a>
         </div>
+        <ol class="steps">
+          <li>In Cloudflare’s <strong>Workers &amp; Pages</strong>, open <strong id="worker-name">your existing SportsHub Worker</strong>. Go to <strong>Settings → Builds</strong> and open its linked GitHub repository. If you set catalog or language preferences in Cloudflare, add <code>--keep-vars</code> to the existing build’s deploy command before updating.</li>
+          <li>In that GitHub repository, use <strong>Sync fork</strong> if available. Otherwise, extract the update ZIP and use <strong>Add file → Upload files</strong> to upload its contents to the repository root. Keep your existing <code>wrangler.toml</code> for the 0.3.0 update. Commit the changes to the production branch shown in Cloudflare, or merge them into it.</li>
+          <li>Wait for the deployment to succeed in Cloudflare. Check the same link here again and reopen Nuvio.</li>
+        </ol>
+        <p>Updating the same Worker keeps your Nuvio install link and saved AIOStreams secret.</p>
         <details>
-          <summary>I deploy from GitHub</summary>
-          <ol class="steps">
-            <li>Open your Worker’s <strong>Settings → Builds</strong> to find its repository and production branch. If you use dashboard variables for SportsHub preferences, add <code>--keep-vars</code> to the build’s Wrangler deploy command.</li>
-            <li>Update that repository from the release source ZIP, keeping any custom Worker name, routes, and bindings in <code>wrangler.toml</code>. If your repository offers <strong>Sync fork</strong>, you can use it to bring in the upstream changes.</li>
-            <li>Push to the connected production branch. Once Cloudflare deploys it, check the same link here again and reopen Nuvio.</li>
-          </ol>
-        </details>
-        <details>
-          <summary>I deploy with Wrangler</summary>
+          <summary>My Worker has no connected GitHub repository</summary>
           <ol class="steps">
             <li>Download and extract the release source ZIP. Carry over any custom routes and bindings in <code>wrangler.toml</code>.</li>
             <li>In that folder, run <code>npm ci</code> and sign in with <code>npx wrangler login</code> if needed. On Windows, use <code>npm.cmd</code> and <code>npx.cmd</code> if PowerShell blocks the commands.</li>

@@ -6,6 +6,7 @@ const button = form.querySelector('button');
 const notice = document.querySelector('#notice');
 const instructions = document.querySelector('#upgrade-instructions');
 const releaseLink = document.querySelector('#release-link');
+const workerName = document.querySelector('#worker-name');
 
 function manifestUrl(value) {
   const text = value.trim();
@@ -36,10 +37,10 @@ async function latestRelease() {
     });
     if (response.ok) {
       const { tag_name: tag } = await response.json();
-      if (parts(tag)) return { version: tag.replace(/^v/, ''), link: `${repo}/releases/tag/${tag}` };
+      if (parts(tag)) return { version: tag.replace(/^v/, ''), zip: `${repo}/archive/refs/tags/${tag}.zip` };
     }
   } catch { /* The known release remains available if the API is offline. */ }
-  return { version: currentRelease, link: `${repo}/releases/tag/v${currentRelease}`, fallback: true };
+  return { version: currentRelease, zip: `${repo}/archive/refs/tags/v${currentRelease}.zip`, fallback: true };
 }
 
 form.addEventListener('submit', async event => {
@@ -67,9 +68,10 @@ form.addEventListener('submit', async event => {
       return;
     }
     if (olderThan(manifest.version, release.version)) {
-      releaseLink.href = release.link;
-      releaseLink.textContent = `Get SportsHub ${release.version}`;
-      notice.textContent = `You have ${manifest.version}. SportsHub ${release.version} is available. Choose how you deploy below.`;
+      releaseLink.href = release.zip;
+      const name = /^([a-z0-9-]+)\.[a-z0-9-]+\.workers\.dev$/.exec(url.hostname)?.[1];
+      workerName.textContent = name || 'your existing SportsHub Worker';
+      notice.textContent = `You have ${manifest.version}. SportsHub ${release.version} is available.`;
       instructions.hidden = false;
     } else {
       const status = release.fallback ? `You have SportsHub ${manifest.version}.` : `You’re up to date on SportsHub ${manifest.version}.`;
