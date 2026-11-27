@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Update your existing SportsHub Worker and keep your Nuvio install.">
+  <meta name="description" content="Check and update your SportsHub Worker without reinstalling in Nuvio.">
   <title>Update SportsHub</title>
   <link rel="stylesheet" href="wizard.css">
-  <script type="module" src="update.js"></script>
+  <script type="module" src="update.js?v=check"></script>
 </head>
 <body>
   <main>
@@ -15,53 +15,35 @@
       <a href="https://github.com/reelhumann-glitch/sportshub">GitHub ↗</a>
     </header>
     <h1>Update SportsHub</h1>
-    <nav aria-label="Update progress" id="update-progress" hidden>
-      <ol id="progress"><li>Find Worker</li><li>Deploy update</li><li>Verify</li></ol>
-    </nav>
     <div class="panel">
-      <section data-step aria-labelledby="worker-title">
-        <h2 id="worker-title" tabindex="-1">Find your existing Worker</h2>
-        <ol class="steps">
-          <li>Open <a href="https://dash.cloudflare.com/">Cloudflare</a>, go to <strong>Workers &amp; Pages</strong>, and select your SportsHub Worker.</li>
-          <li>Note the Worker name and its HTTPS address. Use this same Worker throughout the update so your Nuvio installation keeps working.</li>
-          <li>Under <strong>Settings → Builds</strong>, check which GitHub repository and production branch are connected, if any.</li>
-        </ol>
-      </section>
-      <section data-step aria-labelledby="deploy-title">
-        <h2 id="deploy-title" tabindex="-1">Deploy to the same Worker</h2>
-        <fieldset class="choices" id="deploy-options" hidden>
-          <legend>How do you deploy?</legend>
-          <label><input type="radio" name="method" value="github" checked> Cloudflare builds from my GitHub repository</label>
-          <label><input type="radio" name="method" value="wrangler"> I deploy with Wrangler</label>
-        </fieldset>
-        <div data-method="github">
-          <h3>Cloudflare Builds</h3>
-          <ol class="steps">
-            <li>If you set catalog or language preferences in Cloudflare, check the existing build’s deploy command before pushing. Add <code>--keep-vars</code> to its Wrangler deploy command so it preserves dashboard variables.</li>
-            <li>Get the <a href="https://github.com/reelhumann-glitch/sportshub/releases/latest">latest SportsHub release</a>. If your GitHub copy offers <strong>Sync fork</strong>, you can use it to bring in the upstream changes. Otherwise, download the release source ZIP, copy its project files into a checkout of your connected repository, and keep any Worker-specific name, routes, and bindings in <code>wrangler.toml</code>.</li>
-            <li>Push or merge the update into the connected production branch. Wait for the new deployment to succeed under <strong>Deployments</strong>.</li>
-          </ol>
+      <form id="check-update" class="copy-box" hidden>
+        <label for="worker-url">Your SportsHub link from Nuvio</label>
+        <input id="worker-url" name="worker" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://your-worker.workers.dev/manifest.json" required>
+        <button class="primary" type="submit">Check for update</button>
+      </form>
+      <p id="notice" role="status" aria-live="polite"></p>
+      <div id="upgrade-instructions">
+        <p>Update the same Cloudflare Worker to keep your existing Nuvio install and saved AIOStreams secret.</p>
+        <div class="actions">
+          <a id="release-link" class="primary cta" href="https://github.com/reelhumann-glitch/sportshub/releases/latest">Get the latest release</a>
+          <a href="https://dash.cloudflare.com/">Open Cloudflare ↗</a>
         </div>
-        <div data-method="wrangler">
-          <h3>Wrangler</h3>
+        <details>
+          <summary>I deploy from GitHub</summary>
           <ol class="steps">
-            <li>Update your local project from the <a href="https://github.com/reelhumann-glitch/sportshub/releases/latest">latest SportsHub release</a>. Keep any custom routes and bindings in <code>wrangler.toml</code>.</li>
-            <li>From the updated folder, run <code>npm ci</code>. Sign in with <code>npx wrangler login</code> if needed.</li>
-            <li>Replace <code>EXISTING_WORKER_NAME</code> with the name from step one, then run <code>npx wrangler deploy --name EXISTING_WORKER_NAME --keep-vars</code> in the same Cloudflare account. In Windows PowerShell, use <code>npm.cmd</code> and <code>npx.cmd</code> if needed.</li>
+            <li>Open your Worker’s <strong>Settings → Builds</strong> to find its repository and production branch. If you use dashboard variables for SportsHub preferences, add <code>--keep-vars</code> to the build’s Wrangler deploy command.</li>
+            <li>Update that repository from the release source ZIP, keeping any custom Worker name, routes, and bindings in <code>wrangler.toml</code>. If your repository offers <strong>Sync fork</strong>, you can use it to bring in the upstream changes.</li>
+            <li>Push to the connected production branch. Once Cloudflare deploys it, check the same link here again and reopen Nuvio.</li>
           </ol>
-        </div>
-        <p>Your existing <code>AIOSTREAMS_MANIFEST_URL</code> secret stays on the Worker. Keep the URL in Cloudflare Secrets.</p>
-      </section>
-      <section data-step aria-labelledby="verify-title">
-        <h2 id="verify-title" tabindex="-1">Verify the update and reopen Nuvio</h2>
-        <ol class="steps">
-          <li>Open the existing Worker address with <code>/manifest.json</code> at the end. Compare its <code>version</code> with the <a href="https://github.com/reelhumann-glitch/sportshub/releases/latest">release you deployed</a>. For example, release <code>v0.3.0</code> reports <code>0.3.0</code>.</li>
-          <li>Refresh the SportsHub catalog in Nuvio or close and reopen the app. You can keep your existing Nuvio installation as long as the Worker address is the same.</li>
-        </ol>
-      </section>
-      <div class="wizard-nav" id="update-navigation" hidden>
-        <button class="secondary" id="back" type="button">Back</button>
-        <button class="primary" id="next" type="button">Continue</button>
+        </details>
+        <details>
+          <summary>I deploy with Wrangler</summary>
+          <ol class="steps">
+            <li>Download and extract the release source ZIP. Carry over any custom routes and bindings in <code>wrangler.toml</code>.</li>
+            <li>In that folder, run <code>npm ci</code> and sign in with <code>npx wrangler login</code> if needed. On Windows, use <code>npm.cmd</code> and <code>npx.cmd</code> if PowerShell blocks the commands.</li>
+            <li>Run <code>npx wrangler deploy --name EXISTING_WORKER_NAME --keep-vars</code>, using the Worker name from your Cloudflare dashboard. Check the same link here again and reopen Nuvio.</li>
+          </ol>
+        </details>
       </div>
     </div>
   </main>

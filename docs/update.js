@@ -1,39 +1,86 @@
-const steps = [...document.querySelectorAll('[data-step]')];
-const progress = [...document.querySelectorAll('#progress li')];
-const deployOptions = document.querySelector('#deploy-options');
-const instructions = [...document.querySelectorAll('[data-method]')];
-const back = document.querySelector('#back');
-const next = document.querySelector('#next');
-let step = 0;
+const currentRelease = '0.3.0';
+const repo = 'https://github.com/reelhumann-glitch/sportshub';
+const form = document.querySelector('#check-update');
+const input = document.querySelector('#worker-url');
+const button = form.querySelector('button');
+const notice = document.querySelector('#notice');
+const instructions = document.querySelector('#upgrade-instructions');
+const releaseLink = document.querySelector('#release-link');
 
-function showMethod() {
-  const method = deployOptions.querySelector('input:checked').value;
-  for (const instruction of instructions) {
-    instruction.hidden = instruction.dataset.method !== method;
+function manifestUrl(value) {
+  const text = value.trim();
+  const url = new URL(text.includes('://') ? text : `https://${text}`);
+  if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) {
+    throw new Error('Invalid Worker URL');
   }
+  const path = url.pathname.replace(/\/+$/, '');
+  url.pathname = path.endsWith('/manifest.json') ? path : `${path}/manifest.json`;
+  return url;
 }
 
-function showStep() {
-  steps.forEach((section, index) => { section.hidden = index !== step; });
-  progress.forEach((item, index) => {
-    if (index === step) item.setAttribute('aria-current', 'step');
-    else item.removeAttribute('aria-current');
-  });
-  back.hidden = step === 0;
-  next.hidden = step === steps.length - 1;
+function parts(value) {
+  return /^v?(\d+)\.(\d+)\.(\d+)$/.exec(value)?.slice(1).map(Number);
 }
 
-function move(change) {
-  step += change;
-  showStep();
-  steps[step].querySelector('h2').focus();
+function olderThan(version, latest) {
+  const mine = parts(version);
+  const newest = parts(latest);
+  const difference = mine.map((number, index) => number - newest[index]).find(number => number !== 0);
+  return difference < 0;
 }
 
-deployOptions.addEventListener('change', showMethod);
-back.addEventListener('click', () => move(-1));
-next.addEventListener('click', () => move(1));
-showMethod();
-showStep();
-deployOptions.hidden = false;
-document.querySelector('#update-progress').hidden = false;
-document.querySelector('#update-navigation').hidden = false;
+async function latestRelease() {
+  try {
+    const response = await fetch('https://api.github.com/repos/reelhumann-glitch/sportshub/releases/latest', {
+      credentials: 'omit', signal: AbortSignal.timeout(3500)
+    });
+    if (response.ok) {
+      const { tag_name: tag } = await response.json();
+      if (parts(tag)) return { version: tag.replace(/^v/, ''), link: `${repo}/releases/tag/${tag}` };
+    }
+  } catch { /* The known release remains available if the API is offline. */ }
+  return { version: currentRelease, link: `${repo}/releases/tag/v${currentRelease}`, fallback: true };
+}
+
+form.addEventListener('submit', async event => {
+  event.preventDefault();
+  let url;
+  try {
+    url = manifestUrl(input.value);
+  } catch {
+    notice.textContent = 'Enter your SportsHub Worker’s HTTPS address or manifest link.';
+    input.focus();
+    return;
+  }
+  button.disabled = true;
+  instructions.hidden = true;
+  notice.textContent = 'Checking your Worker…';
+  try {
+    const [response, release] = await Promise.all([
+      fetch(url, { cache: 'no-store', credentials: 'omit', redirect: 'error', signal: AbortSignal.timeout(8000) }),
+      latestRelease()
+    ]);
+    if (!response.ok) throw new Error('Manifest is unavailable');
+    const manifest = await response.json();
+    if (manifest.id !== 'community.sportshub.live' || !parts(manifest.version)) {
+      notice.textContent = 'This link did not return a SportsHub manifest. Use the SportsHub link installed in Nuvio.';
+      return;
+    }
+    if (olderThan(manifest.version, release.version)) {
+      releaseLink.href = release.link;
+      releaseLink.textContent = `Get SportsHub ${release.version}`;
+      notice.textContent = `You have ${manifest.version}. SportsHub ${release.version} is available. Choose how you deploy below.`;
+      instructions.hidden = false;
+    } else {
+      const status = release.fallback ? `You have SportsHub ${manifest.version}.` : `You’re up to date on SportsHub ${manifest.version}.`;
+      notice.textContent = `${status} You can keep your Nuvio install.`;
+    }
+  } catch {
+    notice.textContent = 'Could not read your Worker. Check the link and try again.';
+  } finally {
+    button.disabled = false;
+  }
+});
+
+instructions.hidden = true;
+form.hidden = false;
